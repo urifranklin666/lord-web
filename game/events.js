@@ -224,32 +224,148 @@ function eventBardSong(player, out) {
   return { changed: true, endFight: false };
 }
 
-// ── NORMSAY.DAT — killer taunts ───────────────────────────────────────────────
-let _normsay = null;
+// ── NORMSAY.DAT / GOODSAY.DAT / BADSAY.DAT ────────────────────────────────────
+const _sayCache = {};
 
-function loadNormsay() {
-  if (_normsay) return _normsay;
-  const p = require('path').join(__dirname, '..', 'data', 'NORMSAY.DAT');
-  if (!require('fs').existsSync(p)) { _normsay = []; return _normsay; }
+function loadSayFile(filename) {
+  if (_sayCache[filename]) return _sayCache[filename];
+  const p = require('path').join(__dirname, '..', 'data', filename);
+  if (!require('fs').existsSync(p)) { _sayCache[filename] = []; return []; }
   const lines = require('fs').readFileSync(p, 'latin1').split(/\r?\n/);
-  // Line 0: comment, Line 1: count, Lines 2+: messages
-  _normsay = lines.slice(2).map(l => l.trim()).filter(l => l.length > 0);
-  return _normsay;
+  // Line 0: comment, Line 1: count, Lines 2+: messages (quoted strings)
+  const msgs = lines.slice(2)
+    .map(l => l.trim().replace(/^"|"$/g, ''))
+    .filter(l => l.length > 0);
+  _sayCache[filename] = msgs;
+  return msgs;
 }
 
-function getKillTaunt(killer, loser) {
-  const lines = loadNormsay();
-  if (!lines.length) return '';
-  const template = lines[rnd(0, lines.length - 1)];
+function applyTauntVars(template, g, e) {
   return template
-    .replace(/`g/g, killer)
-    .replace(/`e/g, loser)
+    .replace(/`g/g, g)
+    .replace(/`e/g, e)
     .replace(/`n/g, '\r\n  ');
 }
 
+function getKillTaunt(killer, loser) {
+  const lines = loadSayFile('NORMSAY.DAT');
+  if (!lines.length) return '';
+  return applyTauntVars(lines[rnd(0, lines.length - 1)], killer, loser);
+}
+
+// GOODSAY: winner (`g) beat loser (`e) — said BY loser or narrator
+function getGoodSay(winner, loser) {
+  const lines = loadSayFile('GOODSAY.DAT');
+  if (!lines.length) return '';
+  return applyTauntVars(lines[rnd(0, lines.length - 1)], winner, loser);
+}
+
+// BADSAY: loser (`g) lost to winner (`e) — said by/about attacker who lost
+function getBadSay(loser, winner) {
+  const lines = loadSayFile('BADSAY.DAT');
+  if (!lines.length) return '';
+  return applyTauntVars(lines[rnd(0, lines.length - 1)], loser, winner);
+}
+
+// ── Fairy event (Extra Special Event) ────────────────────────────────────────
+function eventFairy(player, out) {
+  out(C.yellow + `  *** EXTRA SPECIAL EVENT! ***` + C.reset);
+  out(`\r\n  ` + C.cyan + `A shimmering fairy appears in a shower of golden light!` + C.reset);
+  const roll = rnd(1, 4);
+  if (roll === 1) {
+    const gain = rnd(2, 5);
+    player.charm = Math.min(100, player.charm + gain);
+    out(`\r\n  ${C.magenta}She blesses you with radiant grace! +${gain} Charm${C.gray} (now ${player.charm})` + C.reset);
+  } else if (roll === 2) {
+    const fights = rnd(3, 7);
+    player.fightsLeft += fights;
+    out(`\r\n  ${C.green}She fills you with boundless energy! +${fights} forest fights!` + C.reset);
+  } else if (roll === 3) {
+    const gold = player.level * rnd(400, 800);
+    player.gold += gold;
+    out(`\r\n  ${C.yellow}She showers you in sparkling gold! +${commas(gold)}g!` + C.reset);
+  } else {
+    player.hp = player.hpMax;
+    out(`\r\n  ${C.green}She heals all your wounds with a touch! Fully restored to ${player.hpMax} HP!` + C.reset);
+  }
+  storage.savePlayer(player);
+  return { changed: true, endFight: false };
+}
+
+// ── Demon encounter ───────────────────────────────────────────────────────────
+function eventDemon(player, out) {
+  out(C.red + `  A Demon materializes from the void!` + C.reset);
+  out(`\r\n  ${C.dkred}Its eyes burn red. You have no choice but to fight!` + C.reset);
+
+  const demonStr = Math.floor(player.strength * 0.8) + player.level * 10;
+  let demonHp = player.level * 80 + 50;
+  let rounds = 0;
+  let playerHp = player.hp;
+  let log = [];
+
+  while (playerHp > 0 && demonHp > 0 && rounds < 30) {
+    rounds++;
+    const pDmg = Math.max(1, rnd(Math.floor(player.strength * 0.5), player.strength) - Math.floor(demonStr * 0.2));
+    demonHp -= pDmg;
+    log.push(`${C.green}You strike the Demon for ${pDmg} damage!${C.reset}`);
+    if (demonHp <= 0) break;
+    const dDmg = Math.max(1, rnd(Math.floor(demonStr * 0.5), demonStr) - player.def);
+    playerHp -= dDmg;
+    log.push(`${C.red}The Demon claws you for ${dDmg} damage!${C.reset}`);
+  }
+
+  for (const l of log) out(`\r\n  ` + l);
+
+  if (playerHp <= 0) {
+    player.hp = 0;
+    player.dead = true;
+    const goldLost = Math.floor(player.gold / 2);
+    player.gold -= goldLost;
+    player.gem = 0;
+    out(`\r\n  ${C.red}The Demon destroys you! You lose ${commas(goldLost)}g and all gems.` + C.reset);
+    storage.savePlayer(player);
+    return { changed: true, endFight: false, dead: true };
+  }
+
+  player.hp = playerHp;
+  const expGained  = player.level * 500;
+  const goldGained = player.level * rnd(200, 500);
+  player.exp  += expGained;
+  player.gold += goldGained;
+  out(`\r\n  ${C.yellow}You vanquish the Demon! +${commas(expGained)} exp  +${commas(goldGained)}g!` + C.reset);
+  out(`\r\n  ${C.gray}HP: ${player.hp}/${player.hpMax}` + C.reset);
+  storage.savePlayer(player);
+  return { changed: true, endFight: true };
+}
+
+// ── Weird event (v3 accumulator) ──────────────────────────────────────────────
+function eventWeird(player, out) {
+  player.v3 = (player.v3 || 0) + 1;
+  if (player.v3 < 5) {
+    storage.savePlayer(player);
+    return null; // silent accumulation
+  }
+  player.v3 = 0;
+  out(C.magenta + `  Something strange shimmers in the air...` + C.reset);
+  const roll = rnd(1, 3);
+  if (roll === 1) {
+    player.charm = Math.min(100, player.charm + 3);
+    out(`\r\n  ${C.magenta}A ghostly voice whispers your name. You feel oddly attractive. +3 Charm!` + C.reset);
+  } else if (roll === 2) {
+    const hp = rnd(10, 30);
+    player.hpMax += hp;
+    player.hp    += hp;
+    out(`\r\n  ${C.green}Reality bends around you. Your body feels stronger. +${hp} Max HP!` + C.reset);
+  } else {
+    player.gem += rnd(2, 5);
+    out(`\r\n  ${C.cyan}Gems materialize from thin air at your feet!  +${player.gem} gems!` + C.reset);
+  }
+  storage.savePlayer(player);
+  return { changed: true, endFight: false };
+}
+
 // ── Random event dispatcher ───────────────────────────────────────────────────
-// LORD.LDY has 9 forest events: GEM, HORSE, OLDMAN, BAGOGOLD, HAMMERSTONE,
-// MERRYMEN, HAG, TROLL, UGLYSTICK
+// Forest events pool (original 9 + fairy + demon + weird accumulator)
 const FOREST_EVENTS = [
   eventGem,
   eventHorse,
@@ -260,13 +376,20 @@ const FOREST_EVENTS = [
   eventHag,
   eventTroll,
   eventUglyStick,
+  eventFairy,   // rare bonus event
+  eventDemon,   // rare dangerous encounter
 ];
 
 /**
  * 30% chance of a random event on forest entry.
+ * Always ticks the weird-event accumulator (silent unless v3 reaches 5).
  * Returns event result or null if no event fired.
  */
 function rollForestEvent(player, out) {
+  // Weird event accumulator always ticks
+  const weird = eventWeird(player, out);
+  if (weird) return weird;
+
   if (rnd(1, 100) > 30) return null;
   const fn = FOREST_EVENTS[rnd(0, FOREST_EVENTS.length - 1)];
   return fn(player, out);
@@ -285,7 +408,8 @@ module.exports = {
   rollBankEvent,
   eventBardSong,
   getKillTaunt,
+  getGoodSay,
+  getBadSay,
   eventHorse,
-  // Exports for session direct use
   FOREST_EVENTS,
 };

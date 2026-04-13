@@ -91,10 +91,63 @@ function checkNewDay() {
   if (gs.lastReset !== today) {
     gs.lastReset = today;
     gs.currentDay++;
+    // Reset dragon each new day
+    gs.dragon = null;
     saveGameStateSync();
     return true; // new day happened
   }
   return false;
+}
+
+// ── Dragon (shared boss state) ────────────────────────────────────────────────
+const DRAGON_DEFAULT_HP = 1000;
+
+function getDragonState() {
+  const gs = loadGameState();
+  if (!gs.dragon) {
+    gs.dragon = { hp: DRAGON_DEFAULT_HP, maxHp: DRAGON_DEFAULT_HP };
+    saveGameStateSync();
+  }
+  return gs.dragon;
+}
+
+function damageDragon(amount) {
+  const gs = loadGameState();
+  if (!gs.dragon) gs.dragon = { hp: DRAGON_DEFAULT_HP, maxHp: DRAGON_DEFAULT_HP };
+  gs.dragon.hp = Math.max(0, gs.dragon.hp - amount);
+  saveGameStateSync();
+  return gs.dragon;
+}
+
+function resetDragon() {
+  const gs = loadGameState();
+  gs.dragon = { hp: DRAGON_DEFAULT_HP, maxHp: DRAGON_DEFAULT_HP };
+  saveGameStateSync();
+}
+
+// ── Mail system ───────────────────────────────────────────────────────────────
+function sendMail(toPlayerId, mail) {
+  const players = loadPlayers();
+  const p = players.find(pl => pl.id === toPlayerId);
+  if (!p) return;
+  if (!p.mailbox) p.mailbox = [];
+  p.mailbox.push({ ...mail, sentAt: new Date().toISOString() });
+  markDirty();
+}
+
+function getMail(playerId) {
+  const players = loadPlayers();
+  const p = players.find(pl => pl.id === playerId);
+  if (!p || !p.mailbox || !p.mailbox.length) return [];
+  return p.mailbox;
+}
+
+function clearMail(playerId) {
+  const players = loadPlayers();
+  const p = players.find(pl => pl.id === playerId);
+  if (!p) return;
+  p.mailbox = [];
+  markDirty();
 }
 
 // ── Players ───────────────────────────────────────────────────────────────────
@@ -287,4 +340,11 @@ module.exports = {
   setSettings,
   getAllSettings,
   SETTING_DEFAULTS,
+  getDragonState,
+  damageDragon,
+  resetDragon,
+  DRAGON_DEFAULT_HP,
+  sendMail,
+  getMail,
+  clearMail,
 };
