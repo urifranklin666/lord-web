@@ -1,0 +1,16 @@
+services:
+  lord:
+    build: .
+    container_name: lord-web
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    ports:
+      # Exposed for NPM proxy → lord.deadplug.digital (or bbs.deadplug.digital/lord)
+      - "127.0.0.1:7682:7682"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

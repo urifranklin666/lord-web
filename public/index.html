@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Legend of the Red Dragon</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #050505;
+      --panel-bg:  #0a0a0a;
+      --border:    #2a0000;
+      --red:       #cc0000;
+      --red-dim:   #7a0000;
+      --gold:      #aa7700;
+      --text:      #c0c0c0;
+      --text-dim:  #666;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      overflow: hidden;
+    }
+
+    #shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Header ── */
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+      padding: 0.4rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-bg);
+      flex-shrink: 0;
+    }
+    #header .brand {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--red);
+      text-transform: uppercase;
+    }
+    #header .subtitle {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+    }
+    #header .spacer { flex: 1; }
+    #status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #333;
+      transition: background 0.3s;
+    }
+    #status-dot.connected    { background: #2a7a2a; box-shadow: 0 0 6px #2a7a2a; }
+    #status-dot.disconnected { background: #7a0000; }
+    #status-text {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+    }
+
+    /* ── Terminal container ── */
+    #terminal-wrap {
+      flex: 1;
+      overflow: hidden;
+      padding: 0.5rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Footer ── */
+    #footer {
+      flex-shrink: 0;
+      padding: 0.25rem 1rem;
+      border-top: 1px solid var(--border);
+      background: var(--panel-bg);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      display: flex;
+      gap: 2rem;
+    }
+    #footer kbd {
+      background: #1a0000;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 0 3px;
+      font-size: 0.62rem;
+      color: var(--gold);
+    }
+
+    /* Reconnect overlay */
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    #overlay.show { display: flex; }
+    #overlay-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--red-dim);
+      padding: 2rem 3rem;
+      text-align: center;
+    }
+    #overlay-box h2 { color: var(--red); margin-bottom: 0.75rem; }
+    #overlay-box p  { color: var(--text-dim); margin-bottom: 1.25rem; font-size: 0.85rem; }
+    #reconnect-btn {
+      background: var(--red-dim);
+      border: 1px solid var(--red);
+      color: #fff;
+      padding: 0.4rem 1.2rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+    }
+    #reconnect-btn:hover { background: var(--red); }
+  </style>
+</head>
+<body>
+
+<div id="shell">
+  <div id="header">
+    <span class="brand">LORD</span>
+    <span class="subtitle">Legend of the Red Dragon — Browser Edition</span>
+    <span class="spacer"></span>
+    <span id="status-dot"></span>
+    <span id="status-text">connecting…</span>
+  </div>
+
+  <div id="terminal-wrap">
+    <div id="terminal"></div>
+  </div>
+
+  <div id="footer">
+    <span><kbd>↑↓</kbd> scroll history</span>
+    <span><kbd>Enter</kbd> confirm / submit</span>
+    <span><kbd>Backspace</kbd> delete</span>
+    <span>Single-key menus respond immediately</span>
+  </div>
+</div>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <h2>Connection Lost</h2>
+    <p>Your link to the realm was severed.</p>
+    <button id="reconnect-btn">Reconnect</button>
+  </div>
+</div>
+
+<!-- xterm.js -->
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Terminal setup ──────────────────────────────────────────────────────────
+  const term = new Terminal({
+    cols:            80,
+    rows:            24,
+    cursorBlink:     true,
+    cursorStyle:     'block',
+    fontFamily:      "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+    fontSize:        15,
+    lineHeight:      1.15,
+    letterSpacing:   0,
+    scrollback:      1000,
+    theme: {
+      background:    '#050505',
+      foreground:    '#c0c0c0',
+      cursor:        '#cc0000',
+      cursorAccent:  '#000000',
+      selectionBackground: '#2a0000',
+      black:         '#0a0a0a',
+      red:           '#aa0000',
+      green:         '#00aa00',
+      yellow:        '#aa5500',
+      blue:          '#0000aa',
+      magenta:       '#aa00aa',
+      cyan:          '#00aaaa',
+      white:         '#aaaaaa',
+      brightBlack:   '#555555',
+      brightRed:     '#ff5555',
+      brightGreen:   '#55ff55',
+      brightYellow:  '#ffff55',
+      brightBlue:    '#5555ff',
+      brightMagenta: '#ff55ff',
+      brightCyan:    '#55ffff',
+      brightWhite:   '#ffffff',
+    }
+  });
+
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('terminal'));
+  fitAddon.fit();
+
+  window.addEventListener('resize', () => fitAddon.fit());
+
+  // ── WebSocket ───────────────────────────────────────────────────────────────
+  const statusDot  = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const overlay    = document.getElementById('overlay');
+  let ws = null;
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url   = `${proto}//${location.host}/ws`;
+
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      statusDot.className  = 'connected';
+      statusText.textContent = 'connected';
+      overlay.classList.remove('show');
+      term.focus();
+    };
+
+    ws.onmessage = (ev) => {
+      // EOT signals server-side quit
+      if (ev.data === '\x04') { ws.close(); return; }
+      term.write(ev.data);
+    };
+
+    ws.onclose = () => {
+      statusDot.className  = 'disconnected';
+      statusText.textContent = 'disconnected';
+      overlay.classList.add('show');
+    };
+
+    ws.onerror = () => {
+      statusDot.className  = 'disconnected';
+      statusText.textContent = 'error';
+    };
+  }
+
+  // ── Key handling ────────────────────────────────────────────────────────────
+  term.onKey(({ key, domEvent }) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    // Map special keys to expected sequences
+    let send = key;
+    if (domEvent.key === 'Backspace') send = '\x08';
+    if (domEvent.key === 'Delete')    send = '\x7f';
+    if (domEvent.key === 'Enter')     send = '\r';
+    if (domEvent.key === 'Escape')    send = '\x1b';
+    if (domEvent.key === 'Tab')       { domEvent.preventDefault(); send = '\t'; }
+
+    ws.send(send);
+  });
+
+  // ── Reconnect button ────────────────────────────────────────────────────────
+  document.getElementById('reconnect-btn').addEventListener('click', () => {
+    term.reset();
+    connect();
+  });
+
+  connect();
+})();
+</script>
+</body>
+</html>
