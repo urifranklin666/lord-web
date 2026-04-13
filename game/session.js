@@ -8,8 +8,8 @@ const trainers   = require('./trainers');
 const appearance = require('./appearance');
 const { getWeapons, getArmour } = require('./weapons');
 const { C, colorize, commas, titleBar, rnd } = require('./text');
-const { CLASSES, LEVEL_EXP, INN_COST, HEALER_RATE, GEM_HEAL,
-        BASE_FOREST_FIGHTS } = require('./constants');
+const { CLASSES, LEVEL_EXP } = require('./constants');
+const { getSetting } = require('./storage');
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────
 const CRLF   = '\r\n';
@@ -397,6 +397,7 @@ class GameSession {
     if (ch === 'g') {
       if (p.gem <= 0) { this.ln(C.red + `\r\n  No gems!` + C.reset); this.out(C.white + 'Choice: '); return; }
       p.gem--;
+      const GEM_HEAL = getSetting('gemHeal');
       const healed = Math.min(GEM_HEAL, p.hpMax - p.hp);
       p.hp = Math.min(p.hpMax, p.hp + GEM_HEAL);
       this.ln(C.green + `\r\n  You use a gem: +${healed} HP (${p.hp}/${p.hpMax})` + C.reset);
@@ -530,7 +531,7 @@ class GameSession {
     }
 
     const hpNeeded = p.hpMax - p.hp;
-    const healCost = hpNeeded * HEALER_RATE;
+    const healCost = hpNeeded * getSetting('healerRate');
     this._context.healCost = healCost;
     this.ln(C.green + `  (H)eal to full  (${commas(healCost)}g — ${hpNeeded} HP needed)`);
     this.ln(C.green + `  (L)eave` + C.reset);
@@ -563,7 +564,7 @@ class GameSession {
         this.ln(C.green + `\r\n  You are already at full health!` + C.reset);
       } else {
         const affordable = Math.min(cost, p.gold);
-        const hpGained   = Math.floor(affordable / HEALER_RATE);
+        const hpGained   = Math.floor(affordable / getSetting('healerRate'));
         p.gold -= hpGained * HEALER_RATE;
         p.hp    = Math.min(p.hpMax, p.hp + hpGained);
         storage.savePlayer(p);
@@ -587,7 +588,7 @@ class GameSession {
     this.ln(C.brown + `  A warm fire crackles. The innkeeper nods.` + C.reset);
     this.ln(C.gray  + `  HP: ${p.hp}/${p.hpMax}   Gold: ${commas(p.gold)}` + C.reset);
     this.ln();
-    this.ln(C.green + `  (S)leep (${INN_COST}g — wake fully healed next visit)`);
+    this.ln(C.green + `  (S)leep (${getSetting('innCost')}g — wake fully healed next visit)`);
     this.ln(C.green + `  (L)eave` + C.reset);
     this.ln();
     this.out(C.white + 'Choice: ');
@@ -597,6 +598,7 @@ class GameSession {
   _state_inn_menu(ch) {
     const p = this.player;
     if (ch === 's') {
+      const INN_COST = getSetting('innCost');
       if (p.gold < INN_COST) {
         this.ln(C.red + `\r\n  "You can't afford a room!"` + C.reset);
       } else {

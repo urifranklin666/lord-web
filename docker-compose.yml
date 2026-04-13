@@ -3,6 +3,8 @@ services:
     build: .
     container_name: lord-web
     restart: unless-stopped
+    environment:
+      ADMIN_PASS: ${ADMIN_PASS:-changeme}
     volumes:
       - ./data:/app/data
     ports:

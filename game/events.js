@@ -7,8 +7,6 @@
 const { C, rnd, commas } = require('./text');
 const storage = require('./storage');
 
-const GEM_HEAL = 10;
-
 // ── Individual events ─────────────────────────────────────────────────────────
 
 function eventGem(player, out) {
@@ -71,6 +69,7 @@ function eventHag(player, out) {
     out(C.gray + `  A hunched hag beckons. "Gems for healing!" — but you have none.` + C.reset);
     return { changed: false, endFight: false };
   }
+  const GEM_HEAL = storage.getSetting('gemHeal');
   out(C.dkgray + `  A wizened hag emerges from the shadows.` + C.reset);
   out(`\r\n  ${C.gray}"One gem and I heal your wounds — or boost your limits if you're well!"` + C.reset);
   player.gem--;

@@ -53,6 +53,33 @@ function updateGameState(patch) {
   saveGameStateSync();
 }
 
+// ── Persistent settings ───────────────────────────────────────────────────────
+const SETTING_DEFAULTS = {
+  forestFights: 50,
+  pvpFights:    5,
+  innCost:      15,
+  healerRate:   3,
+  gemHeal:      10,
+};
+
+function getSetting(key) {
+  const gs = loadGameState();
+  if (!gs.settings) gs.settings = {};
+  return gs.settings[key] !== undefined ? gs.settings[key] : SETTING_DEFAULTS[key];
+}
+
+function setSettings(patch) {
+  const gs = loadGameState();
+  if (!gs.settings) gs.settings = {};
+  Object.assign(gs.settings, patch);
+  saveGameStateSync();
+}
+
+function getAllSettings() {
+  const gs = loadGameState();
+  return Object.assign({}, SETTING_DEFAULTS, gs.settings || {});
+}
+
 // ── Today's "day number" — resets when calendar date changes ─────────────────
 function todayStr() {
   return new Date().toISOString().split('T')[0];
@@ -218,8 +245,8 @@ function resetPlayerDay(player) {
   const today = todayStr();
   if (player.lastDay === today) return false; // already reset
 
-  player.fightsLeft = BASE_FOREST_FIGHTS + (player.extra ? 10 : 0); // horse = +10
-  player.humanLeft  = BASE_PVP_FIGHTS;
+  player.fightsLeft = getSetting('forestFights') + (player.extra ? 10 : 0); // horse = +10
+  player.humanLeft  = getSetting('pvpFights');
   player.v4         = false;
   player.seenViolet = false;
   player.seenBard   = false;
@@ -256,4 +283,8 @@ module.exports = {
   savePlayer,
   resetPlayerDay,
   savePlayers,
+  getSetting,
+  setSettings,
+  getAllSettings,
+  SETTING_DEFAULTS,
 };

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LORD Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #060606;
+      --panel:    #0d0d0d;
+      --border:   #2a0000;
+      --border2:  #1a1a1a;
+      --red:      #cc2200;
+      --red-dim:  #7a1100;
+      --gold:     #aa8800;
+      --green:    #1a7a1a;
+      --green-lt: #22aa22;
+      --text:     #c0c0c0;
+      --text-dim: #555;
+      --input-bg: #111;
+      --danger:   #7a0000;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* ── Login overlay ── */
+    #login-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.95);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999;
+    }
+    #login-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 2.5rem 3rem;
+      min-width: 320px;
+      text-align: center;
+    }
+    #login-box h2 { color: var(--red); margin-bottom: 1.5rem; letter-spacing: 0.1em; font-size: 1rem; }
+    #login-box input {
+      width: 100%; background: var(--input-bg); border: 1px solid var(--border2);
+      color: var(--text); padding: 0.5rem 0.75rem; font-family: inherit;
+      font-size: 0.85rem; margin-bottom: 1rem; outline: none;
+    }
+    #login-box input:focus { border-color: var(--red-dim); }
+    #login-btn {
+      width: 100%; background: var(--red-dim); border: 1px solid var(--red);
+      color: #fff; padding: 0.5rem; cursor: pointer; font-family: inherit;
+      font-size: 0.85rem; letter-spacing: 0.08em;
+    }
+    #login-btn:hover { background: var(--red); }
+    #login-err { color: var(--red); font-size: 0.75rem; margin-top: 0.5rem; min-height: 1rem; }
+
+    /* ── Header ── */
+    #header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 1.5rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    #header .brand { color: var(--red); font-weight: 700; letter-spacing: 0.15em; font-size: 0.9rem; }
+    #header .sub   { color: var(--text-dim); font-size: 0.7rem; }
+    #header .spacer { flex: 1; }
+    #logout-btn {
+      background: none; border: 1px solid var(--border2); color: var(--text-dim);
+      padding: 0.2rem 0.7rem; cursor: pointer; font-family: inherit; font-size: 0.72rem;
+    }
+    #logout-btn:hover { border-color: var(--red-dim); color: var(--text); }
+
+    /* ── Layout ── */
+    #main { display: grid; grid-template-columns: 280px 1fr; gap: 0; min-height: calc(100vh - 41px); }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--border2);
+      padding: 1rem 0;
+    }
+    .nav-section { padding: 0.3rem 1rem 0.1rem; color: var(--text-dim); font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; }
+    .nav-btn {
+      display: block; width: 100%; text-align: left;
+      background: none; border: none; color: var(--text-dim);
+      padding: 0.45rem 1.25rem; cursor: pointer; font-family: inherit; font-size: 0.8rem;
+      border-left: 2px solid transparent; transition: all 0.1s;
+    }
+    .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    .nav-btn.active { color: var(--gold); border-left-color: var(--red); background: rgba(180,50,0,0.08); }
+
+    /* ── Content ── */
+    #content { padding: 1.5rem; overflow-y: auto; }
+
+    .section { display: none; }
+    .section.visible { display: block; }
+
+    h2.section-title {
+      color: var(--red); font-size: 0.85rem; letter-spacing: 0.1em;
+      text-transform: uppercase; border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem; margin-bottom: 1.25rem;
+    }
+
+    /* ── Settings grid ── */
+    .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+    .setting-card {
+      background: var(--panel); border: 1px solid var(--border2);
+      padding: 1rem 1.1rem;
+    }
+    .setting-card label { display: block; color: var(--text-dim); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.4rem; }
+    .setting-card input {
+      width: 100%; background: var(--input-bg); border: 1px solid var(--border2);
+      color: var(--gold); padding: 0.4rem 0.6rem; font-family: inherit; font-size: 1rem;
+      font-weight: 700; outline: none;
+    }
+    .setting-card input:focus { border-color: var(--red-dim); }
+    .setting-card .hint { color: var(--text-dim); font-size: 0.65rem; margin-top: 0.3rem; }
+    #save-settings-btn {
+      margin-top: 1.25rem; background: var(--green); border: 1px solid var(--green-lt);
+      color: #fff; padding: 0.45rem 1.5rem; cursor: pointer; font-family: inherit;
+      font-size: 0.8rem; letter-spacing: 0.06em;
+    }
+    #save-settings-btn:hover { background: var(--green-lt); }
+    #settings-msg { margin-left: 1rem; font-size: 0.75rem; color: var(--green-lt); }
+
+    /* ── Player list ── */
+    #player-search {
+      width: 100%; max-width: 360px; background: var(--input-bg);
+      border: 1px solid var(--border2); color: var(--text);
+      padding: 0.4rem 0.75rem; font-family: inherit; font-size: 0.8rem;
+      outline: none; margin-bottom: 1rem;
+    }
+    #player-search:focus { border-color: var(--red-dim); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    th {
+      text-align: left; color: var(--text-dim); font-weight: normal;
+      border-bottom: 1px solid var(--border2); padding: 0.35rem 0.6rem;
+      font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #111; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .dead-row td { color: var(--red-dim); }
+
+    .btn-edit, .btn-delete, .btn-resetday {
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 0.7rem; padding: 0.2rem 0.55rem; margin-right: 3px;
+    }
+    .btn-edit     { background: #1a3a1a; color: #7aaa7a; }
+    .btn-edit:hover { background: #2a5a2a; }
+    .btn-resetday { background: #1a1a3a; color: #7a7aaa; }
+    .btn-resetday:hover { background: #2a2a5a; }
+    .btn-delete   { background: #2a0a0a; color: #aa5555; }
+    .btn-delete:hover { background: var(--danger); color: #fff; }
+
+    /* ── Player editor modal ── */
+    #editor-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); z-index: 200;
+      align-items: flex-start; justify-content: center;
+      padding: 2rem 1rem; overflow-y: auto;
+    }
+    #editor-overlay.show { display: flex; }
+    #editor-box {
+      background: var(--panel); border: 1px solid var(--border);
+      width: 100%; max-width: 800px; padding: 1.5rem 2rem;
+    }
+    #editor-box h3 { color: var(--gold); margin-bottom: 1rem; font-size: 0.9rem; letter-spacing: 0.08em; }
+
+    .editor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; }
+    .field-group { display: flex; flex-direction: column; gap: 0.25rem; }
+    .field-group label { color: var(--text-dim); font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .field-group input, .field-group select {
+      background: var(--input-bg); border: 1px solid var(--border2);
+      color: var(--text); padding: 0.35rem 0.5rem; font-family: inherit; font-size: 0.8rem;
+      outline: none;
+    }
+    .field-group input:focus, .field-group select:focus { border-color: var(--red-dim); }
+    .field-group input[type="checkbox"] { width: auto; }
+
+    .editor-section-title {
+      grid-column: 1 / -1; color: var(--red-dim);
+      font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+      border-bottom: 1px solid var(--border2); padding-bottom: 0.3rem;
+      margin-top: 0.5rem;
+    }
+
+    .editor-actions { margin-top: 1.25rem; display: flex; gap: 0.75rem; align-items: center; }
+    .btn-save-player {
+      background: var(--green); border: 1px solid var(--green-lt); color: #fff;
+      padding: 0.4rem 1.2rem; cursor: pointer; font-family: inherit; font-size: 0.8rem;
+    }
+    .btn-save-player:hover { background: var(--green-lt); }
+    .btn-cancel {
+      background: none; border: 1px solid var(--border2); color: var(--text-dim);
+      padding: 0.4rem 1rem; cursor: pointer; font-family: inherit; font-size: 0.8rem;
+    }
+    .btn-cancel:hover { border-color: var(--red-dim); color: var(--text); }
+    #editor-msg { font-size: 0.75rem; color: var(--green-lt); }
+
+    /* ── Stats cards ── */
+    .stat-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+    .stat-card {
+      background: var(--panel); border: 1px solid var(--border2);
+      padding: 0.9rem 1rem;
+    }
+    .stat-card .label { color: var(--text-dim); font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .stat-card .value { color: var(--gold); font-size: 1.3rem; font-weight: 700; margin-top: 0.2rem; }
+    .stat-card .sub   { color: var(--text-dim); font-size: 0.65rem; }
+
+    .badge { display: inline-block; padding: 0.1rem 0.4rem; font-size: 0.65rem; border-radius: 2px; }
+    .badge-dead    { background: var(--danger); color: #ff9999; }
+    .badge-alive   { background: #0a2a0a; color: #44aa44; }
+    .badge-horse   { background: #2a2000; color: #aa8800; }
+    .badge-amulet  { background: #002a2a; color: #44aaaa; }
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-overlay">
+  <div id="login-box">
+    <h2>LORD — ADMIN PANEL</h2>
+    <input type="password" id="login-input" placeholder="Admin password" autocomplete="off">
+    <button id="login-btn">Enter</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<!-- Editor modal -->
+<div id="editor-overlay">
+  <div id="editor-box">
+    <h3 id="editor-title">Edit Player</h3>
+    <div class="editor-grid" id="editor-fields"></div>
+    <div class="editor-actions">
+      <button class="btn-save-player" id="editor-save">Save Changes</button>
+      <button class="btn-cancel" id="editor-cancel">Cancel</button>
+      <span id="editor-msg"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Main UI -->
+<div id="header">
+  <span class="brand">LORD</span>
+  <span class="sub">Sysop Admin Panel</span>
+  <span class="spacer"></span>
+  <button id="logout-btn">Logout</button>
+</div>
+
+<div id="main">
+  <nav id="sidebar">
+    <div class="nav-section">Overview</div>
+    <button class="nav-btn active" data-section="overview">Dashboard</button>
+    <div class="nav-section" style="margin-top:.75rem">Game</div>
+    <button class="nav-btn" data-section="settings">Environment Settings</button>
+    <button class="nav-btn" data-section="players">Player Editor</button>
+  </nav>
+
+  <div id="content">
+
+    <!-- Dashboard -->
+    <div class="section visible" id="section-overview">
+      <h2 class="section-title">Dashboard</h2>
+      <div class="stat-cards" id="stat-cards">
+        <div class="stat-card"><div class="label">Total Players</div><div class="value" id="stat-total">—</div></div>
+        <div class="stat-card"><div class="label">Alive</div><div class="value" id="stat-alive">—</div></div>
+        <div class="stat-card"><div class="label">Dead</div><div class="value" id="stat-dead">—</div><div class="sub">need resurrection</div></div>
+        <div class="stat-card"><div class="label">Current Day</div><div class="value" id="stat-day">—</div></div>
+        <div class="stat-card"><div class="label">Champion</div><div class="value" id="stat-champ" style="font-size:.9rem">—</div></div>
+        <div class="stat-card"><div class="label">Forest Fights/day</div><div class="value" id="stat-fights">—</div></div>
+      </div>
+      <h2 class="section-title" style="margin-top:1.5rem">Top Players</h2>
+      <table id="top-table">
+        <thead><tr><th>#</th><th>Name</th><th>Level</th><th>Class</th><th>EXP</th><th>Kills</th><th>Status</th></tr></thead>
+        <tbody id="top-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Settings -->
+    <div class="section" id="section-settings">
+      <h2 class="section-title">Environment Settings</h2>
+      <div class="settings-grid" id="settings-grid"></div>
+      <div style="margin-top:1.25rem">
+        <button id="save-settings-btn">Save Settings</button>
+        <span id="settings-msg"></span>
+      </div>
+    </div>
+
+    <!-- Players -->
+    <div class="section" id="section-players">
+      <h2 class="section-title">Player Editor</h2>
+      <input type="text" id="player-search" placeholder="Search by name…">
+      <table id="player-table">
+        <thead>
+          <tr>
+            <th>ID</th><th>Name</th><th>Lv</th><th>Class</th>
+            <th>HP</th><th>STR</th><th>Gold</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="player-body"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+(function () {
+  'use strict';
+
+  const CLASSES = { 1: 'Death Knight', 2: 'Mystical', 3: 'Thief' };
+
+  const SETTING_META = {
+    forestFights: { label: 'Forest Fights / Day',   hint: 'Daily forest fight allowance (default 50)' },
+    pvpFights:    { label: 'PvP Fights / Day',       hint: 'Daily player-vs-player fight allowance' },
+    innCost:      { label: 'Inn Cost (gold)',         hint: 'Gold charged for one night at the inn' },
+    healerRate:   { label: 'Healer Rate (g/HP)',     hint: 'Gold per HP at the healer' },
+    gemHeal:      { label: 'Gem Heal (HP/gem)',      hint: 'HP restored per gem used in combat' },
+  };
+
+  const PLAYER_FIELDS = [
+    // [key, label, type, section]
+    ['name',       'Game Handle',    'text',   'Identity'],
+    ['realName',   'Real Name',      'text',   'Identity'],
+    ['sex',        'Sex (0=M 5=F)',  'number', 'Identity'],
+    ['class',      'Class (1/2/3)',  'number', 'Identity'],
+    ['level',      'Level',          'number', 'Stats'],
+    ['exp',        'Experience',     'number', 'Stats'],
+    ['hp',         'Current HP',     'number', 'Stats'],
+    ['hpMax',      'Max HP',         'number', 'Stats'],
+    ['strength',   'Strength',       'number', 'Stats'],
+    ['def',        'Defense',        'number', 'Stats'],
+    ['charm',      'Charm',          'number', 'Stats'],
+    ['gold',       'Gold (hand)',    'number', 'Economy'],
+    ['bank',       'Gold (bank)',    'number', 'Economy'],
+    ['gem',        'Gems',           'number', 'Economy'],
+    ['weaponNum',  'Weapon #',       'number', 'Equipment'],
+    ['weapon',     'Weapon Name',    'text',   'Equipment'],
+    ['armNum',     'Armour #',       'number', 'Equipment'],
+    ['arm',        'Armour Name',    'text',   'Equipment'],
+    ['fightsLeft', 'Fights Left',    'number', 'Daily'],
+    ['humanLeft',  'PvP Left',       'number', 'Daily'],
+    ['skillw',     'DK Skill',       'number', 'Skills'],
+    ['skillm',     'Mage Skill',     'number', 'Skills'],
+    ['skillt',     'Thief Skill',    'number', 'Skills'],
+    ['levelw',     'DK Uses Left',   'number', 'Skills'],
+    ['levelm',     'Mage Uses Left', 'number', 'Skills'],
+    ['levelt',     'Thief Uses Left','number', 'Skills'],
+    ['kills',      'Player Kills',   'number', 'Social'],
+    ['king',       'Game Wins',      'number', 'Social'],
+    ['married',    'Married To (#)', 'number', 'Social'],
+    ['kids',       'Kids',           'number', 'Social'],
+    ['lays',       'Lays',           'number', 'Social'],
+    ['extra',      'Has Horse (0/1)','number', 'Flags'],
+    ['dead',       'Dead',           'check',  'Flags'],
+    ['hasAmulet',  'Has Amulet',     'check',  'Flags'],
+  ];
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let token    = sessionStorage.getItem('lord_admin_token') || '';
+  let players  = [];
+  let settings = {};
+  let editId   = null;
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  const overlay = document.getElementById('login-overlay');
+  const loginInput = document.getElementById('login-input');
+  const loginErr   = document.getElementById('login-err');
+
+  async function tryLogin() {
+    const pw = loginInput.value.trim();
+    if (!pw) return;
+    const res = await fetch('/api/admin/settings', {
+      headers: { Authorization: `Bearer ${pw}` }
+    });
+    if (res.ok) {
+      token = pw;
+      sessionStorage.setItem('lord_admin_token', token);
+      overlay.style.display = 'none';
+      loadAll();
+    } else {
+      loginErr.textContent = 'Wrong password.';
+    }
+  }
+
+  document.getElementById('login-btn').addEventListener('click', tryLogin);
+  loginInput.addEventListener('keydown', e => e.key === 'Enter' && tryLogin());
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    sessionStorage.removeItem('lord_admin_token');
+    token = '';
+    overlay.style.display = 'flex';
+    loginInput.value = '';
+  });
+
+  if (token) { overlay.style.display = 'none'; loadAll(); }
+
+  // ── API helpers ────────────────────────────────────────────────────────────
+  function api(method, path, body) {
+    return fetch(path, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  // ── Nav ────────────────────────────────────────────────────────────────────
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+      btn.classList.add('active');
+      document.getElementById(`section-${btn.dataset.section}`).classList.add('visible');
+    });
+  });
+
+  // ── Load all ───────────────────────────────────────────────────────────────
+  async function loadAll() {
+    const [sRes, pRes] = await Promise.all([
+      api('GET', '/api/admin/settings'),
+      api('GET', '/api/admin/players'),
+    ]);
+    settings = await sRes.json();
+    players  = await pRes.json();
+    renderSettings();
+    renderDashboard();
+    renderPlayerTable(players);
+  }
+
+  // ── Settings ───────────────────────────────────────────────────────────────
+  function renderSettings() {
+    const grid = document.getElementById('settings-grid');
+    grid.innerHTML = '';
+    for (const [key, meta] of Object.entries(SETTING_META)) {
+      const card = document.createElement('div');
+      card.className = 'setting-card';
+      card.innerHTML = `
+        <label for="s-${key}">${meta.label}</label>
+        <input id="s-${key}" type="number" min="0" value="${settings[key] ?? ''}">
+        <div class="hint">${meta.hint}</div>`;
+      grid.appendChild(card);
+    }
+  }
+
+  document.getElementById('save-settings-btn').addEventListener('click', async () => {
+    const patch = {};
+    for (const key of Object.keys(SETTING_META)) {
+      const el = document.getElementById(`s-${key}`);
+      if (el) patch[key] = Number(el.value);
+    }
+    const res = await api('PUT', '/api/admin/settings', patch);
+    settings = await res.json();
+    renderSettings();
+    renderDashboard();
+    const msg = document.getElementById('settings-msg');
+    msg.textContent = 'Saved!';
+    setTimeout(() => { msg.textContent = ''; }, 2000);
+  });
+
+  // ── Dashboard ──────────────────────────────────────────────────────────────
+  async function renderDashboard() {
+    const gs = await (await api('GET', '/api/admin/settings')).json();
+    const alive = players.filter(p => !p.dead).length;
+    document.getElementById('stat-total').textContent  = players.length;
+    document.getElementById('stat-alive').textContent  = alive;
+    document.getElementById('stat-dead').textContent   = players.length - alive;
+    document.getElementById('stat-fights').textContent = gs.forestFights ?? '?';
+
+    // game state — not directly available via API, derive from players
+    document.getElementById('stat-champ').textContent = 'No API yet';
+    document.getElementById('stat-day').textContent   = '—';
+
+    const top = [...players].sort((a, b) => b.exp - a.exp).slice(0, 10);
+    const tbody = document.getElementById('top-body');
+    tbody.innerHTML = '';
+    top.forEach((p, i) => {
+      const tr = document.createElement('tr');
+      if (p.dead) tr.className = 'dead-row';
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${esc(p.name)}</td>
+        <td>${p.level}</td>
+        <td>${CLASSES[p.class] || '?'}</td>
+        <td>${fmt(p.exp)}</td>
+        <td>${p.kills}</td>
+        <td>${p.dead ? '<span class="badge badge-dead">DEAD</span>' : '<span class="badge badge-alive">Alive</span>'}
+            ${p.extra ? '<span class="badge badge-horse">Horse</span>' : ''}
+            ${p.hasAmulet ? '<span class="badge badge-amulet">Amulet</span>' : ''}
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ── Player table ───────────────────────────────────────────────────────────
+  function renderPlayerTable(list) {
+    const tbody = document.getElementById('player-body');
+    tbody.innerHTML = '';
+    list.forEach(p => {
+      const tr = document.createElement('tr');
+      if (p.dead) tr.className = 'dead-row';
+      tr.innerHTML = `
+        <td>${p.id}</td>
+        <td>${esc(p.name)}</td>
+        <td>${p.level}</td>
+        <td>${CLASSES[p.class] || '?'}</td>
+        <td>${p.hp}/${p.hpMax}</td>
+        <td>${p.strength}</td>
+        <td>${fmt(p.gold)}</td>
+        <td>${p.dead ? '<span class="badge badge-dead">DEAD</span>' : '<span class="badge badge-alive">Alive</span>'}
+            ${p.extra ? '<span class="badge badge-horse">🐎</span>' : ''}</td>
+        <td>
+          <button class="btn-edit" data-id="${p.id}">Edit</button>
+          <button class="btn-resetday" data-id="${p.id}" title="Reset daily fight counters">↺ Day</button>
+          <button class="btn-delete" data-id="${p.id}">Delete</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.btn-edit').forEach(b =>
+      b.addEventListener('click', () => openEditor(Number(b.dataset.id))));
+    tbody.querySelectorAll('.btn-resetday').forEach(b =>
+      b.addEventListener('click', () => resetDay(Number(b.dataset.id))));
+    tbody.querySelectorAll('.btn-delete').forEach(b =>
+      b.addEventListener('click', () => deletePlayer(Number(b.dataset.id))));
+  }
+
+  document.getElementById('player-search').addEventListener('input', function () {
+    const q = this.value.toLowerCase();
+    renderPlayerTable(players.filter(p => p.name.toLowerCase().includes(q)));
+  });
+
+  // ── Player editor ──────────────────────────────────────────────────────────
+  function openEditor(id) {
+    const p = players.find(pl => pl.id === id);
+    if (!p) return;
+    editId = id;
+
+    document.getElementById('editor-title').textContent = `Edit: ${p.name}`;
+    document.getElementById('editor-msg').textContent = '';
+
+    const container = document.getElementById('editor-fields');
+    container.innerHTML = '';
+
+    let lastSection = null;
+    for (const [key, label, type, section] of PLAYER_FIELDS) {
+      if (section !== lastSection) {
+        lastSection = section;
+        const hdr = document.createElement('div');
+        hdr.className = 'editor-section-title';
+        hdr.textContent = section;
+        container.appendChild(hdr);
+      }
+
+      const grp = document.createElement('div');
+      grp.className = 'field-group';
+
+      if (type === 'check') {
+        grp.innerHTML = `
+          <label for="ef-${key}">${label}</label>
+          <label style="display:flex;align-items:center;gap:.4rem;margin-top:.2rem">
+            <input type="checkbox" id="ef-${key}" ${p[key] ? 'checked' : ''}>
+            <span style="color:var(--text-dim);font-size:.75rem">${p[key] ? 'Yes' : 'No'}</span>
+          </label>`;
+      } else {
+        grp.innerHTML = `
+          <label for="ef-${key}">${label}</label>
+          <input type="${type}" id="ef-${key}" value="${esc(String(p[key] ?? ''))}">`;
+      }
+      container.appendChild(grp);
+    }
+
+    document.getElementById('editor-overlay').classList.add('show');
+  }
+
+  document.getElementById('editor-cancel').addEventListener('click', () => {
+    document.getElementById('editor-overlay').classList.remove('show');
+    editId = null;
+  });
+
+  document.getElementById('editor-save').addEventListener('click', async () => {
+    if (!editId) return;
+    const patch = {};
+    for (const [key, , type] of PLAYER_FIELDS) {
+      const el = document.getElementById(`ef-${key}`);
+      if (!el) continue;
+      if (type === 'check')   patch[key] = el.checked;
+      else if (type === 'number') patch[key] = Number(el.value);
+      else patch[key] = el.value;
+    }
+    const res = await api('PUT', `/api/admin/players/${editId}`, patch);
+    if (res.ok) {
+      const updated = await res.json();
+      const idx = players.findIndex(p => p.id === editId);
+      if (idx !== -1) players[idx] = updated;
+      document.getElementById('editor-msg').textContent = 'Saved!';
+      renderPlayerTable(players);
+      renderDashboard();
+      setTimeout(() => {
+        document.getElementById('editor-overlay').classList.remove('show');
+        editId = null;
+      }, 800);
+    } else {
+      document.getElementById('editor-msg').textContent = 'Error saving.';
+    }
+  });
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  async function resetDay(id) {
+    const p = players.find(pl => pl.id === id);
+    if (!confirm(`Reset daily counters for ${p?.name}?`)) return;
+    const res = await api('POST', `/api/admin/players/${id}/resetday`);
+    if (res.ok) {
+      const updated = await res.json();
+      const idx = players.findIndex(pl => pl.id === id);
+      if (idx !== -1) players[idx] = updated;
+      renderPlayerTable(players);
+      renderDashboard();
+    }
+  }
+
+  async function deletePlayer(id) {
+    const p = players.find(pl => pl.id === id);
+    if (!confirm(`Delete ${p?.name} permanently?`)) return;
+    const res = await api('DELETE', `/api/admin/players/${id}`);
+    if (res.ok) {
+      players = players.filter(pl => pl.id !== id);
+      renderPlayerTable(players);
+      renderDashboard();
+    }
+  }
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function fmt(n) { return Number(n).toLocaleString('en-US'); }
+
+})();
+</script>
+</body>
+</html>
