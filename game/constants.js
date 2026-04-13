@@ -49,9 +49,9 @@ const CLASSES = {
 
 // ── Starting stats by class ───────────────────────────────────────────────────
 const CLASS_START = {
-  1: { strength: 30, def: 0, hp: 30, gold: 200,  gem: 0,  charm: 10 },
-  2: { strength: 20, def: 0, hp: 20, gold: 150,  gem: 5,  charm: 15 },
-  3: { strength: 25, def: 0, hp: 25, gold: 300,  gem: 0,  charm: 12 },
+  1: { strength: 30, def: 0, hp: 60,  gold: 200,  gem: 0,  charm: 10 }, // DK: more HP to survive early hits
+  2: { strength: 20, def: 0, hp: 45,  gold: 150,  gem: 5,  charm: 15 }, // Mage: gem heals compensate
+  3: { strength: 25, def: 0, hp: 50,  gold: 300,  gem: 0,  charm: 12 }, // Thief: flee bonus helps survivability
 };
 
 // ── Level thresholds (exp required to REACH that level) ──────────────────────
@@ -100,9 +100,9 @@ const VIOLET_CHARM_BONUS = 1;
 
 // ── Seth's master (level-up trainer) ─────────────────────────────────────────
 const MASTER_STAT_GAIN = {
-  1: { strength: 10, hp: 10 }, // Warrior
-  2: { strength:  6, hp:  8 }, // Mage
-  3: { strength:  8, hp:  9 }, // Thief
+  1: { strength: 10, hp: 30 }, // DK: high HP growth to stay relevant vs heavy hitters
+  2: { strength:  6, hp: 22 }, // Mage: moderate — compensates with gem heals and Magic Blast
+  3: { strength:  8, hp: 26 }, // Thief: moderate — flee bonus and Backstab make up the difference
 };
 
 module.exports = {

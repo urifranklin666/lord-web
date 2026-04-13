@@ -140,11 +140,11 @@ function eventTroll(player, out) {
   player.hp -= damage;
   if (player.hp <= 0) {
     player.hp = 0;
-    // Troll kills: steal gold and gems
-    const stolen = player.gold;
-    player.gold = 0;
+    // Troll kills: steal up to half gold (capped at 2000g) and all gems
+    const stolen = Math.min(player.gold, Math.max(Math.floor(player.gold / 2), 2000));
+    player.gold -= stolen;
     player.gem  = 0;
-    out(`\r\n  ${C.red}You are slain! The troll steals all your gold (${commas(stolen)}g) and gems!` + C.reset);
+    out(`\r\n  ${C.red}You are slain! The troll steals ${commas(stolen)}g and all your gems!` + C.reset);
     player.dead = true;
     storage.savePlayer(player);
     return { changed: true, endFight: false, dead: true };
@@ -292,13 +292,17 @@ function eventFairy(player, out) {
   return { changed: true, endFight: false };
 }
 
-// ── Demon encounter ───────────────────────────────────────────────────────────
+// ── Demon encounter (level 4+ only) ──────────────────────────────────────────
 function eventDemon(player, out) {
+  // Don't unleash a demon on new players — skip silently below level 4
+  if (player.level < 4) return eventBagOfGold(player, out);
+
   out(C.red + `  A Demon materializes from the void!` + C.reset);
   out(`\r\n  ${C.dkred}Its eyes burn red. You have no choice but to fight!` + C.reset);
 
-  const demonStr = Math.floor(player.strength * 0.8) + player.level * 10;
-  let demonHp = player.level * 80 + 50;
+  // Demon strength: 60% of player strength + level scaling (fair but threatening)
+  const demonStr = Math.floor(player.strength * 0.6) + player.level * 8;
+  let demonHp = player.level * 60 + 30;
   let rounds = 0;
   let playerHp = player.hp;
   let log = [];

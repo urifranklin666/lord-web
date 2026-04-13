@@ -19,10 +19,12 @@ function calcHit(atkStr, defDef) {
 
 /**
  * Player attacks monster for one round.
+ * Monsters at higher levels have natural hide/scale defense (10% of their STR).
  * Returns { damage, crit, text }
  */
 function playerAttack(player, monster) {
-  const { damage, crit } = calcHit(player.strength, 0); // monsters have no def
+  const monsterDef = Math.floor((monster.strength || 0) * 0.10);
+  const { damage, crit } = calcHit(player.strength, monsterDef);
   let text = '';
   if (crit) {
     text += C.yellow + `Critical hit! `;

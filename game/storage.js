@@ -100,7 +100,7 @@ function checkNewDay() {
 }
 
 // ── Dragon (shared boss state) ────────────────────────────────────────────────
-const DRAGON_DEFAULT_HP = 1000;
+const DRAGON_DEFAULT_HP = 25000; // shared across all players; resets daily
 
 function getDragonState() {
   const gs = loadGameState();

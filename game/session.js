@@ -1531,7 +1531,7 @@ class GameSession {
     this.ln(C.gray   + `  Dragon HP: ${C.white}${dr.hp}${C.gray}/${dr.maxHp}  STR: ${C.white}2000` + C.reset);
     this.ln(C.gray   + `  Your    HP: ${C.white}${p.hp}${C.gray}/${p.hpMax}  STR: ${C.white}${p.strength}` + C.reset);
     this.ln();
-    if (p.level < 10) {
+    if (p.level < 8) {
       this.ln(C.yellow + `  [Warning: You are level ${p.level}. The dragon is extremely dangerous!]` + C.reset);
       this.ln();
     }
@@ -1593,8 +1593,9 @@ class GameSession {
       return this._dragonSlain();
     }
 
-    // Dragon counter-attacks
-    const dDmg = Math.max(1, rnd(100, 300) - p.def);
+    // Dragon counter-attacks — scales with how wounded the dragon is (enrages)
+    const dragonRage  = Math.ceil((1 - updatedDr.hp / updatedDr.maxHp) * 300);
+    const dDmg = Math.max(1, rnd(200 + dragonRage, 500 + dragonRage) - p.def);
     this.ln(C.red + `  The Red Dragon breathes fire at you for ${C.white}${dDmg}${C.red} damage!` + C.reset);
     p.hp -= dDmg;
     if (p.hp <= 0) {
