@@ -37,7 +37,7 @@ class GameSession {
   onKey(ch) {
     const singleKey = [
       'main_menu','forest_menu','fight_choice',
-      'shop_weapon','shop_armor','bank_menu',
+      'bank_menu',
       'healer_menu','inn_menu','tavern_menu',
       'master_menu','pvp_list_page','pvp_confirm',
       'players_list','any_key','death_screen',
@@ -658,10 +658,10 @@ class GameSession {
     this.state = 'shop_weapon';
   }
 
-  _state_shop_weapon(ch) {
-    if (ch === 'r') return this._renderMain();
+  _state_shop_weapon(input) {
+    if (input.toLowerCase() === 'r') return this._renderMain();
     const WEAPONS = getWeapons();
-    const n = parseInt(ch);
+    const n = parseInt(input);
     const p = this.player;
     if (!isNaN(n) && n >= 1 && n <= 15 && WEAPONS[n]) {
       const w = WEAPONS[n];
@@ -706,10 +706,10 @@ class GameSession {
     this.state = 'shop_armor';
   }
 
-  _state_shop_armor(ch) {
-    if (ch === 'r') return this._renderMain();
+  _state_shop_armor(input) {
+    if (input.toLowerCase() === 'r') return this._renderMain();
     const ARMOUR = getArmour();
-    const n = parseInt(ch);
+    const n = parseInt(input);
     const p = this.player;
     if (!isNaN(n) && n >= 0 && n <= 15 && ARMOUR[n]) {
       const a = ARMOUR[n];
