@@ -43,6 +43,7 @@ class GameSession {
       'players_list','any_key','death_screen',
       'blackjack_menu','register_sex','register_class',
       'horse_offer','amulet_offer',
+      'bartender_menu','gem_trade',
     ];
 
     if (singleKey.includes(this.state)) {
@@ -963,6 +964,7 @@ class GameSession {
     this.ln(C.green + `  (G)amble with the Locals`);
     this.ln(C.green + `  (J)oin the Blackjack Table`);
     this.ln(C.green + `  (B)ard's Song`);
+    this.ln(C.green + `  (T)alk to the Bartender`);
     this.ln(C.green + `  (Y)our Stats`);
     this.ln(C.green + `  (R)eturn` + C.reset);
     this.ln();
@@ -1031,8 +1033,219 @@ class GameSession {
         return;
       }
       case 'j': return this._enterBlackjack();
+      case 't': return this._enterBartender();
       default:  this.out(C.white + 'Choice: ');
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // BARTENDER / VIOLET / SETH ABLE
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _enterBartender() {
+    const p = this.player;
+    this.cls();
+    this.ln(C.brown + titleBar('The Bartender') + C.reset);
+    this.ln();
+    if (p.sex === 0) {
+      // Male player — female bartender
+      this.ln(C.cyan + `  A buxom barmaid leans on the counter and winks at you.` + C.reset);
+    } else {
+      // Female player — male bartender
+      this.ln(C.cyan + `  The rugged bartender gives you a slow, appraising smile.` + C.reset);
+    }
+    this.ln();
+    if (p.sex === 0) {
+      this.ln(C.green + `  (V)iolet - Talk to the barmaid`);
+    } else {
+      this.ln(C.green + `  (S)eth Able - Talk to the bard`);
+    }
+    this.ln(C.green + `  (G)ems - Trade gems for charm`);
+    this.ln(C.green + `  (N)ame change`);
+    this.ln(C.green + `  (R)eturn` + C.reset);
+    this.ln();
+    this.out(C.white + 'Choice: ');
+    this.state = 'bartender_menu';
+  }
+
+  _state_bartender_menu(ch) {
+    const p = this.player;
+    switch (ch) {
+      case 'r': return this._enterTavern();
+      case 'v':
+        if (p.sex === 0) return this._enterViolet();
+        return this._enterBartender();
+      case 's':
+        if (p.sex !== 0) return this._enterSethAble();
+        return this._enterBartender();
+      case 'g': return this._bartenderGems();
+      case 'n': return this._bartenderNameChange();
+      default:  this.out(C.white + 'Choice: ');
+    }
+  }
+
+  _enterViolet() {
+    const p = this.player;
+    this.cls();
+    this.ln(C.magenta + titleBar('Violet') + C.reset);
+    this.ln();
+
+    if (p.seenViolet) {
+      this.ln(C.gray + `  Violet smiles politely but shakes her head.` + C.reset);
+      this.ln(C.gray + `  "Come back tomorrow, darling... I need my rest."` + C.reset);
+      this.ln();
+      this._anyKey(() => this._enterBartender());
+      return;
+    }
+
+    this.ln(C.magenta + `  A violet-eyed beauty sits at the end of the bar, swirling her wine.` + C.reset);
+    this.ln(C.magenta + `  She glances your way...` + C.reset);
+    this.ln();
+
+    const charm = p.charm || 0;
+    const roll  = rnd(1, 100);
+
+    if (charm < 10 || roll <= 15) {
+      // Rejection / slap
+      this.ln(C.red + `  She takes one look at you and turns away.` + C.reset);
+      this.ln(C.red + `  "Not in a million years."` + C.reset);
+      if (rnd(1, 3) === 1) {
+        this.ln(C.red + `  She slaps you across the face for even trying!` + C.reset);
+      }
+    } else if (charm < 40 || roll <= 45) {
+      // Flirt — no lasting effect
+      this.ln(C.cyan + `  She smiles and chats with you for a while.` + C.reset);
+      this.ln(C.cyan + `  "You're kinda cute," she says, "but I'm spoken for tonight."` + C.reset);
+    } else if (charm < 70 || roll <= 70) {
+      // Kiss — minor charm boost
+      this.ln(C.yellow + `  Violet leans close and plants a soft kiss on your cheek.` + C.reset);
+      this.ln(C.yellow + `  "You have something special," she whispers.` + C.reset);
+      p.charm = Math.min(100, charm + 1);
+    } else {
+      // Success — full charm + lays
+      this.ln(C.magenta + `  Violet takes your hand and leads you to a quiet corner of the tavern.` + C.reset);
+      this.ln(C.magenta + `  Hours later you emerge, grinning like a fool.` + C.reset);
+      this.ln(C.green   + `  Your charm increases!` + C.reset);
+      p.charm = Math.min(100, charm + 1);
+      p.lays  = (p.lays || 0) + 1;
+    }
+
+    p.seenViolet = true;
+    storage.savePlayer(p);
+
+    this.ln();
+    this._anyKey(() => this._enterBartender());
+  }
+
+  _enterSethAble() {
+    const p = this.player;
+    this.cls();
+    this.ln(C.cyan + titleBar('Seth Able the Bard') + C.reset);
+    this.ln();
+
+    if (p.seenViolet) {  // reuse flag — same daily slot
+      this.ln(C.gray + `  Seth strums his lute absently and doesn't look up.` + C.reset);
+      this.ln(C.gray + `  "I'll sing for you again tomorrow, m'lady."` + C.reset);
+      this.ln();
+      this._anyKey(() => this._enterBartender());
+      return;
+    }
+
+    this.ln(C.cyan + `  A handsome bard sits on a stool, dark eyes scanning the room.` + C.reset);
+    this.ln(C.cyan + `  He spots you and smiles like he's been waiting all day.` + C.reset);
+    this.ln();
+
+    const charm = p.charm || 0;
+    const roll  = rnd(1, 100);
+
+    if (charm < 10 || roll <= 15) {
+      this.ln(C.red + `  Seth glances up and then away, unimpressed.` + C.reset);
+      this.ln(C.red + `  "Sorry, love. Not my type."` + C.reset);
+    } else if (charm < 40 || roll <= 45) {
+      this.ln(C.cyan + `  Seth plays a sweet song just for you and offers a wink.` + C.reset);
+      this.ln(C.cyan + `  "Come back when you're feeling bolder," he murmurs.` + C.reset);
+    } else if (charm < 70 || roll <= 70) {
+      this.ln(C.yellow + `  Seth takes your hand and sings a ballad with your name in it.` + C.reset);
+      this.ln(C.yellow + `  Your heart flutters. Your charm grows.` + C.reset);
+      p.charm = Math.min(100, charm + 1);
+    } else {
+      this.ln(C.cyan + `  Seth sweeps you off your feet with honeyed words and warm hands.` + C.reset);
+      this.ln(C.cyan + `  The night passes like a dream.` + C.reset);
+      this.ln(C.green + `  Your charm increases!` + C.reset);
+      p.charm = Math.min(100, charm + 1);
+      p.lays  = (p.lays || 0) + 1;
+    }
+
+    p.seenViolet = true;  // shared daily flag
+    storage.savePlayer(p);
+
+    this.ln();
+    this._anyKey(() => this._enterBartender());
+  }
+
+  _bartenderGems() {
+    const p = this.player;
+    this.ln();
+    if (p.gem <= 0) {
+      this.ln(C.red + `  "You don't have any gems to trade," the bartender says.` + C.reset);
+      this._anyKey(() => this._enterBartender());
+      return;
+    }
+    this.ln(C.yellow + `  The bartender eyes your gems.` + C.reset);
+    this.ln(C.yellow + `  "I'll give you a point of charm for each gem. Deal?"` + C.reset);
+    this.ln();
+    this.ln(C.green + `  You have ${C.white}${p.gem}${C.green} gems.` + C.reset);
+    this.ln();
+    this.ln(C.green + `  (Y)es — trade all gems for charm`);
+    this.ln(C.green + `  (N)o  — never mind` + C.reset);
+    this.ln();
+    this.out(C.white + 'Choice: ');
+    this.state = 'gem_trade';
+  }
+
+  _state_gem_trade(ch) {
+    const p = this.player;
+    if (ch === 'y') {
+      const gained = Math.min(p.gem, 100 - (p.charm || 0));
+      p.charm = Math.min(100, (p.charm || 0) + gained);
+      p.gem   = 0;
+      storage.savePlayer(p);
+      this.ln();
+      this.ln(C.green + `  You trade your gems for ${C.white}${gained}${C.green} charm point(s)!` + C.reset);
+    } else {
+      this.ln(C.gray + `  "Maybe next time," the bartender shrugs.` + C.reset);
+    }
+    this._anyKey(() => this._enterBartender());
+  }
+
+  _bartenderNameChange() {
+    const p = this.player;
+    this.ln();
+    this.ln(C.yellow + `  "A new name costs ${C.white}500 gold${C.yellow}," says the bartender.` + C.reset);
+    this.ln(C.yellow + `  "What would you be called?"` + C.reset);
+    this.ln();
+    if (p.gold < 500) {
+      this.ln(C.red + `  You don't have enough gold.` + C.reset);
+      this._anyKey(() => this._enterBartender());
+      return;
+    }
+    this.out(C.white + 'New name: ');
+    this.state = 'name_change';
+  }
+
+  _state_name_change(input) {
+    const p = this.player;
+    const newName = (input || '').trim();
+    if (newName.length < 2) {
+      this.ln(C.red + `  Name too short. Cancelled.` + C.reset);
+      this._anyKey(() => this._enterBartender());
+      return;
+    }
+    p.gold -= 500;
+    p.name  = newName.slice(0, 20);
+    storage.savePlayer(p);
+    this.ln(C.green + `  From this day forth you are known as ${C.white}${p.name}${C.green}!` + C.reset);
+    this._anyKey(() => this._enterBartender());
   }
 
   // ══════════════════════════════════════════════════════════════════════════
