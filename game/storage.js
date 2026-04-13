@@ -178,6 +178,7 @@ function newPlayer(name, realName, passwordHash, sex, classNum) {
     seenDragon:  false,
     seenViolet:  false,
     seenBard:    false,
+    hasAmulet:   false, // Amulet of Accuracy
 
     // ── Social ──
     married:     -1,
@@ -222,6 +223,7 @@ function resetPlayerDay(player) {
   player.v4         = false;
   player.seenViolet = false;
   player.seenBard   = false;
+  player.hasAmulet  = player.hasAmulet || false; // persist across days
 
   // Restore skill uses
   player.levelw = player.skillw;

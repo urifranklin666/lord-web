@@ -1,0 +1,632 @@
+@#OLDMAN
+@verreq 407
+;First thing first.. You dont have to space things out like I do. I space
+;things out like that so they're easier to read.
+
+@display
+`c  `%Event In The Forest`0
+`l
+
+  `2You come across an old man.  He seems confused and asks if
+  you would direct him to the Inn.  You know that if you do,
+  you will lose time for one fight today.
+
+@enddisplay
+@choice YN   Do you take the old man? [`0Y`2]
+@writeln
+@case responce 1
+Y: @begin
+    @writeln
+    ;give the player (500 * level)
+    @math &N1 = 500 * &Plv
+    @set &Pgo to +&N1
+    @writeln   `2You gladly take the old man to the Inn. He is pleased
+    @writeln   with you, and gives you `%&N1 `2gold!
+    ;give him a charm point
+    @set &Pch to +1
+    ;and take away one forest fight
+    @set &Pff to -1
+    @writeln
+    @writeln   `%**CHARM GOES UP BY 1**
+   @end
+N: @begin
+    @writeln
+    @if &Pch < 10 1
+     @begin
+      @writeln   `2"`0I don't have time for you old man..Goodbye..`2"
+      @writeln   You tell him coldly.  The old man shakes his head very sadly.
+     @end
+     @else 1
+     @begin
+      @writeln   `2"`0Old man, I think it's time you learned the way yourself.`2"
+      @writeln   You tell him coldly.  The old man shakes his head sadly.
+     @end
+    @endif 1
+   @end
+@endcase 1
+@writeln
+@hitakey
+@clrscr
+@endquest
+
+@#BAGOGOLD
+@verreq 407
+@writeln `c  `%Event In The Forest`0
+@writeln `l
+@writeln
+; yeah, this looks funny. but its the original math for it.
+@math &N1 = &rnd500 + 250
+@math &N1 = &N1 * &Plv
+@math &N1 = &N1 * &Plv
+@writeln   `2You find a sack with `%&N1 `2gold in it!
+@set &Pgo to +&N1
+@writeln
+@hitakey
+@clrscr
+@endquest
+
+@#HAMMERSTONE
+@verreq 407
+@display
+`c  `%Event In The Forest`0
+`l
+
+  `2You find a `%Hammer Stone`2!
+
+@hitakey
+  `2As is the tradition, you break it in two with your
+  `0&PWE`2. Your weapon tingles!
+
+  `%ATTACK STRENGTH RAISED.
+
+@enddisplay
+@set &Psr to +1
+@writeln
+@hitakey
+@clrscr
+@endquest
+
+@#MERRYMEN
+@verreq 407
+@set &Pht to &Phx
+@display
+`c  `%Event In The Forest`0
+`l
+
+  `2You stumble upon a group of Merry Men!  After partying with them
+  for 2 hours you feel totally refreshed.
+
+@hitakey
+@enddisplay
+@clrscr
+@endquest
+
+@#GEM
+@verreq 407
+@writeln `c  `%Event In The Forest`0
+@writeln `l
+@writeln
+@writeln   `2Fortune smiles, and you find a gem!
+@writeln
+@set &Pge to +1
+@hitakey
+@clrscr
+@endquest
+
+@#HAG
+@verreq 407
+@writeln `c  `%Event In The Forest`0
+@writeln `l
+@writeln
+@if &Pht = &Phx 1
+ @begin
+  @writeln   `2You come across an ugly old hag.  `5"Give me a gem!  You won't be sorry
+  @writeln   my pet!"`2 she screeches.
+ @end
+ @else 1
+ @begin
+  @writeln   `2You come across an ugly old hag.  `5"Give me a gem and I will completely
+  @writeln   heal you warrior!"`2 she screeches.
+ @end
+ @endif 1
+@writeln
+@choice NY   Give her the gem? [`0N`2]
+@writeln
+@case responce 1
+Y: @begin
+    @if &Pge < 1 1
+     @begin
+      @writeln   `5"You have no gems, fool!"`2  the old woman screams at you.  She then
+      @writeln    hits you in a sensitive spot with her cane, and you feel VERY weak.
+      @set &Pht to 1
+     @end
+     @else 1
+     @begin
+      @math &N1 = &Pge - 1
+      @set &Pge to &N1
+      @writeln   You give her a gem.  She waves her wand strangely.
+      @writeln
+      @writeln   `%YOU FEEL BETTER
+      @if &Pht < &Phx 2
+       @set &Pht to &Phx
+       @else 2
+       @begin
+        @set &Phx to +1
+       @end
+      @endif 2
+     @end
+     @endif 1
+   @end
+N: @begin
+    @writeln   `5"Hurumph!" `2 the old woman grunts sourly as you leave.
+   @end
+@endcase 1
+@writeln
+@hitakey
+@clrscr
+@endquest
+
+@#HORSE
+@verreq 407
+;set the price of a horse
+; note: you dont have to always use &N1 first. use them in whatever
+; order you want.
+@math &N10 = 10000 * &Plv
+@label topofhorse
+@display
+`c  `%Event In The Forest`0
+`l
+
+  `2Walking through the forest, you stumble across a clearing in the woods.
+  Looking around, you see a small man and a lot of horses. The man walks up
+  to you and asks you, "`0What can I do for you, mmhmm?`2"
+
+  `2(`0B`2)uy a horse
+  `2(`0S`2)ell your horse
+  `2(`0G`2)o back to the forest
+
+@enddisplay
+@choice GBS   `0Your command `2[`0GBS`2]
+@case response 1
+B: @begin
+@if &Pho is true 1
+@begin
+ @writeln
+ @writeln   `2"`0Now, now. You already have a horse and I cannot sell you another.`2"
+ @writeln
+ @hitakey
+ @goto topofhorse
+@end
+@endif 1
+@writeln
+@choice YN   `2"`0Buy one of my horses for`% &N10`0?`2"
+@case response 2
+N: @begin
+@writeln
+@writeln   `2"`0Okay, mmhmm, maybe some other time.`2"
+@writeln
+@hitakey
+@goto topofhorse
+@end
+Y: @begin
+@if &Pgo < &N10 1
+ @begin
+  @writeln
+  @writeln   `2Chuckling, the hairyfoot says to you `2"`0I am sorry, mmhmm, but I cannot
+  @writeln   make a deal with someone that does not have enough money.`2"
+  @writeln
+  @hitakey
+  @goto topofhorse
+ @end
+@else 1
+@begin
+@set &Pgo to -&N10
+@set &Pho to true
+@writeln
+@writeln   `2"`0Good deal! Mmhmm, there you are.`2"
+@writeln
+@hitakey
+@goto topofhorse
+@end
+@endif 1
+@endcase 2
+@end
+
+S: @begin
+ ;take the players horse
+ @if &Pho is false 1
+ @begin
+   @writeln
+   @writeln   `2The happy look on the gnome's face goes sour. "`0I am sorry, mmhmm,
+   @writeln   but I cannot make a deal with someone that does not have a horse.`2"
+   @writeln
+   @hitakey
+ @goto topofhorse
+ @end
+ @endif 1
+
+ @math &N10 = &Plv * 5000
+
+ @writeln
+ @choice YN   `2"`0Sell your horse for`% &N10`0?`2"
+ @case response 2
+  Y: @begin
+      @set &Pgo to +&N10
+      @set &Pho to false
+      @writeln
+      @writeln  `2"`0Thank you, kind person. Here is the `%&N10`0 gold I promised.`2"
+      @writeln
+      @hitakey
+     @end
+  N: @begin
+      @writeln
+      @writeln  `2"`0Okay.. Maybe some other time..`2"
+      @writeln
+      @hitakey
+     @end
+ @endcase 2
+ @goto topofhorse
+@end
+G: @begin
+@writeln
+@writeln   `0"Good day, kind person. May the Beast not play a deadly part in
+@writeln   your future, mmhmm."
+@writeln
+@hitakey
+@end
+@endcase 1
+@cls
+@endquest
+
+@#UGLYSTICK
+@verreq 407
+; for the longest time, this event has always given 5 charm and
+; taken 1 charm. Doing that kinda throws off the balance of the game,
+; since a player could get very very pretty and never have a chance
+; of getting ugly. Randomizing it helps that a bit.
+@set &N3 to &rnd2
+@if &rnd3 = 1 1
+ @begin
+  @writeln
+  @writeln
+  @writeln   `%MEGA EVENT IN THE FOREST
+  @writeln `0-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  @writeln  `2You are whacked with a pretty stick by an old man!
+  @writeln
+  @writeln  He giggles and runs away!
+  @writeln
+  @writeln  `%YOU GET &N3 CHARM!
+  @writeln
+  @set &Pch to +&N3
+ @end
+@else 1
+ @begin
+  @writeln
+  @writeln
+  @writeln   `%MEGA EVENT IN THE FOREST
+  @writeln `0-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  @writeln   `2You are wacked with an `4ugly`2 stick by an old man!
+  @writeln
+  @writeln   `2He giggles and runs away!
+  @writeln
+  @writeln   `4YOU LOSE &N3 CHARM!
+  @writeln
+  @set &Pch to -&N3
+ @end
+@endif 1
+@hitakey
+@cls
+@endquest
+
+@#TROLL
+@verreq 407
+; Ive always wondered why a random event couldnt kill you..
+; Ive also wondered why there arent as many bad guys in the random
+; events.. Another funny thought. This must be a huge forest.. How
+; else could there be soo many monsters? :)
+
+; The player will lose 1 to 10 hitpoints..
+if &Pcl = 3 1
+@begin
+   @set &N1 to 0
+@end
+@else 1
+@begin
+   @set &N1 to &rnd10
+@end
+@endif 1
+
+@set &N1 to &rnd10
+@writeln
+@writeln
+@writeln   `%MEGA EVENT IN THE FOREST
+@writeln `0-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+@writeln   `2An ugly troll jumps out from behind and tries to steal
+@writeln   your coin purse!
+@writeln
+@set &Pht to -&N1
+@if &Pht > 0 1
+ @begin
+    @if &Pcl = 3 2
+    @begin
+       @writeln   But being the sly theif that you are, you
+       @writeln   fend him off easily!
+    @end
+    @else 2
+    @begin
+       @writeln   You fend him off, but you lose `%&N1`2 hitpoints!
+       @writeln
+    @end
+    @endif 2
+ @end
+@else 1
+ @begin
+; If the player is smart, he wont "look for something to kill" while
+; he's low on hitpoints.. If he isnt keen on the idea of protecting
+; himself, well, the troll will get him..
+   @set &Pgo to 0
+   @set &Pge to 0
+   @set &Pdd to true
+; Lord will save the player's data when he gets back from the event,
+; but some unscrupulous people will drop carrier when they see that theyve
+; been killed. So save the player data now so they cant cheat the game.
+   @saveplayer
+   @writeln   You valiantly try to fend off the little troll, but at the
+   @writeln   last moment, he pulls a dagger out of his boot and gives you
+   @writeln   final blow!
+   @writeln
+   @writeln   `2The troll made off with you coin purse and gem sack!
+   @writeln
+   @writeln   `4You have been killed by the troll!
+   @writeln
+; @endgame really isnt needed here since lord will check the player's
+; hitpoints when they get back from the event.. But, its still an example
+; of how it could be used..
+   @endgame
+ @end
+@endif 1
+; psst: one day, this lil bugger of a troll is going to try and make off
+; with your weapon.. your armor? nah. its hard enough to take off as it is.
+; but not hard to grab your spear of gold and take off running...
+@hitakey
+@endquest
+
+@#BARDSONG
+@verreq 407
+@writeln
+@writeln
+
+@if &Psb is true 1
+ @begin
+   @if &rip is true 2
+   @begin
+     @writeln   "I'm sorry, but my throat is too dry..  Perhaps
+     @writeln   tomorrow."
+   @end
+   @else 2
+   @begin
+     @writeln   "I'm sorry, but my throat is too dry..  Perhaps tomorrow."
+   @end
+   @endif 2
+   @writeln
+ @end
+@else 1
+ @begin
+   @set &Psb to true
+   @writeln
+   @writeln
+   @writeln   `%(Seth Able clears his throat)`2
+   @writeln
+
+   @if &rnd2 = 1 2
+        @runsub UNISEXSONGS events.ldy
+   @else 2
+     @begin
+      @if &Psx is true 3
+        @runsub FEMALESONGS events.ldy
+      @else 3
+        @runsub MALESONGS events.ldy
+      @endif 3
+    @end
+   @endif 2
+   @writeln
+ @end
+@endif 1
+@endquest
+
+@#UNISEXSONGS
+; The unisex songs
+       @case &rnd5 1
+       1: @begin
+            @writeln   `2..."The children are missing, the children are gone"...
+            @writeln   ..."They have no pillow to lay upon,"...
+            @writeln   ..."The hopes of the people are starting to dim"...
+            @writeln   ..."They are gone, because the `4Dragon `2has eaten them"...
+            @writeln
+            @writeln   Tears run down your face.  You swear to avenge the children.
+            @writeln
+            @writeln   `#YOU RECEIVE AN EXTRA USER BATTLE FOR TODAY!
+            @set &Phf to +1
+          @end
+       2: @begin
+            @writeln   `2..."The Gods have powers, the Gods are just"...
+            @writeln   ..."The Gods help us people, when they must"...
+            @writeln   ..."Gods can heal the sick, even the cancered"...
+            @writeln   ..."Pray to the Gods, and you will be answered"...
+            @writeln
+            @writeln   You find yourself wishing for more money.
+            @writeln
+            @writeln   `#SOMEWHERE, MAGIC HAS HAPPENED!
+            @if &Pba < 0 4
+              @set &Pba to 0
+            @endif 4
+            @set &Pba to +&Pba
+            @if &Pba < 0 4
+              @set &Pba to 2000000000;
+            @endif 4
+          @end
+       3: @begin
+            @writeln   `2..."This is the story of a bard"...
+            @writeln   ..."Stabbed in the hand with a shard"...
+            @writeln   ..."They said he'd never play, but they would rue the day"...
+            @writeln   ..."He practiced all the time, becoming good before long"...
+            @writeln   ..."Able got his revenge, by proving them wrong"...
+            @writeln
+            @writeln   The song makes you feel sad, yet happy.
+            @if &Pff < 0 4
+              @set &Pff to 0
+            @endif 4
+            @math &N1 = &Pff + 2
+            @if &N1 <= 32000 4
+            @begin
+              @writeln
+              @writeln   `#YOU RECEIVE TWO MORE FOREST FIGHTS FOR TODAY!
+              @set &Pff to +2
+            @end
+            @endif 4
+          @end
+       4: @begin
+            @writeln   `2..."Let me tell you the Legend, of the Red Dragon"...
+            @writeln   ..."They said he was old, that his claws were saggin"...
+            @writeln   ..."It's not so, don't be fooled"...
+            @writeln   ..."He's alive and well, still killing where he ruled"...
+            @writeln
+            @writeln   The song makes you feel a strange wonder, an awakening.
+            @if &Pff < 0 4
+              @set &Pff to 0
+            @endif 4
+            @math &N1 = &Pff + 1
+            @if &N1 <= 32000 4
+            @begin
+              @writeln
+              @writeln   `#YOU RECEIVE ONE MORE FOREST FIGHT FOR TODAY!
+              @set &Pff to +1
+            @end
+            @endif 4
+          @end
+       5: @begin
+            @writeln   `2..."&hero `2has a story, that must be told"...
+            @writeln   ..."He is already a legend, and he ain't even old"...
+            @writeln   ..."He can drink a river of blood and not burst"...
+            @writeln   ..."He can swallow a desert and never thirst"...
+            @writeln
+            @writeln   The hero has inspired you, and in doing so, made you a better warrior.
+            @writeln
+            @writeln   `#YOUR HITPOINTS INCREASE BY ONE!
+            @set &Phx to +1
+          @end
+       @endcase 1
+@endquest
+
+@#MALESONGS
+; The male songs
+        @case &rnd4 1
+        1: @begin
+             @writeln   `2..."`0&nick `2was a warrior, a man"...
+             @writeln   ..."When he wants to do a thing, he can"...
+             @writeln   ..."To live, to die, it's all the same"...
+             @writeln   ..."But it is better to die, than live in shame"...
+             @writeln
+             @writeln   The song makes you feel your heritage.
+             @writeln
+             @writeln   `#YOUR HIT POINTS ARE MAXED OUT!
+             @set &Pht to &Phx
+           @end
+        2: @begin
+             @writeln   `2..."There once was a warrior, with a beard"...
+             @writeln   ..."He had a power, yes `0&nick `2was feared"...
+             @writeln   ..."Nothing he did, could ever be wrong"...
+             @writeln   ..."He was quick, and he was strong"...
+             @writeln
+             @writeln   The song makes you feel powerful!
+             @if &Pff < 0 4
+               @set &Pff to 0
+             @endif 4
+             @math &N1 = &Pff + 3
+             @if &N1 <= 32000 4
+             @begin
+               @writeln
+               @writeln   `#YOU RECEIVE THREE MORE FOREST FIGHTS FOR TODAY!
+               @set &Pff to +3
+             @end
+             @endif 4
+           @end
+        3: @begin
+             @writeln   `2..."Waiting in the forest waiting for his prey"...
+             @writeln   ..."`0&nick `2didn't care what they would say"...
+             @writeln   ..."He killed in the town, the lands"...
+             @writeln   ..."He wanted evil's blood on his hands"...
+             @writeln
+             @writeln   The song makes you feel powerful!
+             @if &Pff < 0 4
+               @set &Pff to 0
+             @endif 4
+             @math &N1 = &Pff + 3
+             @if &N1 <= 32000 4
+             @begin
+               @writeln
+               @writeln   `#YOU RECEIVE THREE MORE FOREST FIGHTS FOR TODAY!
+               @set &Pff to +3
+             @end
+             @endif 4
+           @end
+        4: @begin
+             @writeln   `2..."A true man was `0&nick`2, a warrior proud"...
+             @writeln   ..."He voiced his opinions meekly, never very loud"...
+             @writeln   ..."But he ain't no wimp, he took `#Violet`2 to bed"...
+             @writeln   ..."He's definately a man, at least that's what she said!"...
+             @writeln
+             @writeln   The song makes you glad you are male!
+             @if &Pff < 0 4
+               @set &Pff to 0
+             @endif 4
+             @math &N1 = &Pff + 2
+             @if &N1 <= 32000 4
+             @begin
+               @writeln
+               @writeln   `#YOU RECEIVE TWO MORE FOREST FIGHTS FOR TODAY!
+               @set &Pff to +2
+             @end
+             @endif 4
+           @end
+        @endcase 1
+
+@endquest
+
+@#FEMALESONGS
+; the female songs
+        @if &rnd2 = 1 4
+        @begin
+          @writeln   `2..."`0&nick `2was a warrior, a queen"...
+          @writeln   ..."She was a beauty, and she was mean"...
+          @writeln   ..."She could melt a heart, at a glance"...
+          @writeln   ..."And men would pay, to see her dance!"...
+          @writeln
+          @writeln   The song makes you feel pretty!
+          @writeln
+          @writeln   `#YOU RECEIVE A CHARM POINT!
+          @set &Pch to +1
+        @end
+        @else 4
+        @begin
+          @writeln   `2..."There once was a woman, of exceeding fame"...
+          @writeln   ..."She had a power, `0&nick `2was her name"...
+          @writeln   ..."Nothing she did, could ever be wrong"...
+          @writeln   ..."She was quick, and she was strong"...
+          @writeln
+          @writeln   The song makes you feel powerful!
+          @if &Pff < 0 5
+            @set &Pff to 0
+          @endif 5
+          @math &N1 = &Pff + 3
+          @if &N1 <= 32000 5
+          @begin
+            @writeln
+            @writeln   `#YOU RECEIVE THREE MORE FOREST FIGHTS FOR TODAY!
+            @set &Pff to +3
+          @end
+          @endif 5
+        @end
+        @endif 4
+@endquest
+

@@ -1,0 +1,240 @@
+
+@#BARDSONG
+@verreq 407
+@writeln
+@writeln
+
+@if &Psb is true 1
+ @begin
+   @if &rip is true 2
+   @begin
+     @writeln   "I'm sorry, but my throat is too dry..  Perhaps
+     @writeln   tomorrow."
+   @end
+   @else 2
+   @begin
+     @writeln   "I'm sorry, but my throat is too dry..  Perhaps tomorrow."
+   @end
+   @endif 2
+   @writeln
+ @end
+@else 1
+ @begin
+   @set &Psb to true
+   @writeln
+   @writeln
+   @writeln   `%(Seth Able clears his throat)`2
+   @writeln
+
+   @if &rnd2 = 1 2
+        @runsub UNISEXSONGS &filename
+   @else 2
+     @begin
+      @if &Psx is true 3
+        @runsub FEMALESONGS &filename
+      @else 3
+        @runsub MALESONGS &filename
+      @endif 3
+    @end
+   @endif 2
+   @writeln
+ @end
+@endif 1
+@endquest
+
+@#UNISEXSONGS
+; The unisex songs
+       @case &rnd5 1
+       1: @begin
+            @writeln   `2..."The children are missing, the children are gone"...
+            @writeln   ..."They have no pillow to lay upon,"...
+            @writeln   ..."The hopes of the people are starting to dim"...
+            @writeln   ..."They are gone, because the `4Dragon `2has eaten them"...
+            @writeln
+            @writeln   Tears run down your face.  You swear to avenge the children.
+            @writeln
+            @writeln   `#YOU RECEIVE AN EXTRA USER BATTLE FOR TODAY!
+            @set &Phf to +1
+          @end
+       2: @begin
+            @writeln   `2..."The Gods have powers, the Gods are just"...
+            @writeln   ..."The Gods help us people, when they must"...
+            @writeln   ..."Gods can heal the sick, even the cancered"...
+            @writeln   ..."Pray to the Gods, and you will be answered"...
+            @writeln
+            @writeln   You find yourself wishing for more money.
+            @writeln
+            @writeln   `#SOMEWHERE, MAGIC HAS HAPPENED!
+            @if &Pba < 0 4
+              @set &Pba to 0
+            @endif 4
+            @set &Pba to +&Pba
+            @if &Pba < 0 4
+              @set &Pba to 2000000000;
+            @endif 4
+          @end
+       3: @begin
+            @writeln   `2..."This is the story of a bard"...
+            @writeln   ..."Stabbed in the hand with a shard"...
+            @writeln   ..."They said he'd never play, but they would rue the day"...
+            @writeln   ..."He practiced all the time, becoming good before long"...
+            @writeln   ..."Able got his revenge, by proving them wrong"...
+            @writeln
+            @writeln   The song makes you feel sad, yet happy.
+            @if &Pff < 0 4
+              @set &Pff to 0
+            @endif 4
+            @math &N1 = &Pff + 2
+            @if &N1 <= 32000 4
+            @begin
+              @writeln
+              @writeln   `#YOU RECEIVE TWO MORE FOREST FIGHTS FOR TODAY!
+              @set &Pff to +2
+            @end
+            @endif 4
+          @end
+       4: @begin
+            @writeln   `2..."Let me tell you the Legend, of the Red Dragon"...
+            @writeln   ..."They said he was old, that his claws were saggin"...
+            @writeln   ..."It's not so, don't be fooled"...
+            @writeln   ..."He's alive and well, still killing where he ruled"...
+            @writeln
+            @writeln   The song makes you feel a strange wonder, an awakening.
+            @if &Pff < 0 4
+              @set &Pff to 0
+            @endif 4
+            @math &N1 = &Pff + 1
+            @if &N1 <= 32000 4
+            @begin
+              @writeln
+              @writeln   `#YOU RECEIVE ONE MORE FOREST FIGHT FOR TODAY!
+              @set &Pff to +1
+            @end
+            @endif 4
+          @end
+       5: @begin
+            @writeln   `2..."&hero `2has a story, that must be told"...
+            @writeln   ..."He is already a legend, and he ain't even old"...
+            @writeln   ..."He can drink a river of blood and not burst"...
+            @writeln   ..."He can swallow a desert and never thirst"...
+            @writeln
+            @writeln   The hero has inspired you, and in doing so, made you a better warrior.
+            @writeln
+            @writeln   `#YOUR HITPOINTS INCREASE BY ONE!
+            @set &Phx to +1
+          @end
+       @endcase 1
+@endquest
+
+@#MALESONGS
+; The male songs
+        @case &rnd4 1
+        1: @begin
+             @writeln   `2..."`0&nick `2was a warrior, a man"...
+             @writeln   ..."When he wants to do a thing, he can"...
+             @writeln   ..."To live, to die, it's all the same"...
+             @writeln   ..."But it is better to die, than live in shame"...
+             @writeln
+             @writeln   The song makes you feel your heritage.
+             @writeln
+             @writeln   `#YOUR HIT POINTS ARE MAXED OUT!
+             @set &Pht to &Phx
+           @end
+        2: @begin
+             @writeln   `2..."There once was a warrior, with a beard"...
+             @writeln   ..."He had a power, yes `0&nick `2was feared"...
+             @writeln   ..."Nothing he did, could ever be wrong"...
+             @writeln   ..."He was quick, and he was strong"...
+             @writeln
+             @writeln   The song makes you feel powerful!
+             @if &Pff < 0 4
+               @set &Pff to 0
+             @endif 4
+             @math &N1 = &Pff + 3
+             @if &N1 <= 32000 4
+             @begin
+               @writeln
+               @writeln   `#YOU RECEIVE THREE MORE FOREST FIGHTS FOR TODAY!
+               @set &Pff to +3
+             @end
+             @endif 4
+           @end
+        3: @begin
+             @writeln   `2..."Waiting in the forest waiting for his prey"...
+             @writeln   ..."`0&nick `2didn't care what they would say"...
+             @writeln   ..."He killed in the town, the lands"...
+             @writeln   ..."He wanted evil's blood on his hands"...
+             @writeln
+             @writeln   The song makes you feel powerful!
+             @if &Pff < 0 4
+               @set &Pff to 0
+             @endif 4
+             @math &N1 = &Pff + 3
+             @if &N1 <= 32000 4
+             @begin
+               @writeln
+               @writeln   `#YOU RECEIVE THREE MORE FOREST FIGHTS FOR TODAY!
+               @set &Pff to +3
+             @end
+             @endif 4
+           @end
+        4: @begin
+             @writeln   `2..."A true man was `0&nick`2, a warrior proud"...
+             @writeln   ..."He voiced his opinions meekly, never very loud"...
+             @writeln   ..."But he ain't no wimp, he took `#Violet`2 to bed"...
+             @writeln   ..."He's definately a man, at least that's what she said!"...
+             @writeln
+             @writeln   The song makes you glad you are male!
+             @if &Pff < 0 4
+               @set &Pff to 0
+             @endif 4
+             @math &N1 = &Pff + 2
+             @if &N1 <= 32000 4
+             @begin
+               @writeln
+               @writeln   `#YOU RECEIVE TWO MORE FOREST FIGHTS FOR TODAY!
+               @set &Pff to +2
+             @end
+             @endif 4
+           @end
+        @endcase 1
+
+@endquest
+
+@#FEMALESONGS
+; the female songs
+        @if &rnd2 = 1 4
+        @begin
+          @writeln   `2..."`0&nick `2was a warrior, a queen"...
+          @writeln   ..."She was a beauty, and she was mean"...
+          @writeln   ..."She could melt a heart, at a glance"...
+          @writeln   ..."And men would pay, to see her dance!"...
+          @writeln
+          @writeln   The song makes you feel pretty!
+          @writeln
+          @writeln   `#YOU RECEIVE A CHARM POINT!
+          @set &Pch to +1
+        @end
+        @else 4
+        @begin
+          @writeln   `2..."There once was a woman, of exceeding fame"...
+          @writeln   ..."She had a power, `0&nick `2was her name"...
+          @writeln   ..."Nothing she did, could ever be wrong"...
+          @writeln   ..."She was quick, and she was strong"...
+          @writeln
+          @writeln   The song makes you feel powerful!
+          @if &Pff < 0 5
+            @set &Pff to 0
+          @endif 5
+          @math &N1 = &Pff + 3
+          @if &N1 <= 32000 5
+          @begin
+            @writeln
+            @writeln   `#YOU RECEIVE THREE MORE FOREST FIGHTS FOR TODAY!
+            @set &Pff to +3
+          @end
+          @endif 5
+        @end
+        @endif 4
+@endquest
+

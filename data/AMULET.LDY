@@ -1,0 +1,69 @@
+@#INSTALL
+@eventname Amulet of Accuracy
+@author Michael Preslar
+@authid AMULET1
+@codebegin
+@runsub AMULET &filename
+@codeend
+@target LEAVEBANK
+
+@#UNINSTALL
+
+@#AMULET
+@verreq 407
+
+@case &Pcl 1
+1: @set &S1 to warrior
+2: @set &S1 to magician
+3: @set &S1 to thief
+@endcase 1
+
+@math &N1 = &Plv * 1000
+
+@clrscr
+@display
+  `%A random event!
+`#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+  `2While leaving the bank, a stranger approaches you..
+
+  `2"`0Hello there &S1. My name is Aidan. I have something that might
+  interest you. Its just a little necklace I found in the forest, but
+  the old man in the Dark Cloak Tavern called it an '`%Amulet of Accuracy`2'
+  I have no use for it. I'll sell it to you - only &N1 gold`2"
+
+
+@enddisplay
+
+@choice NY   `2Buy the Amulet? `2[`0N`2] :
+
+@case response 1
+Y: @begin
+      @if &Pgo < &N1 1
+      @begin
+         @writeln   `2"`0I''m sorry, but it seems you dont have enough gold to make
+         @writeln   the trade. Maybe some other time.`2"
+         @goto done
+      @end
+      @endif 1
+
+      @if &Pam = 1 1
+      @begin
+         @writeln   `2"`0I'm sorry, but you already have an amulet. I cannot sell
+         @writeln   you another.`2"
+         @goto done
+      @end
+      @endif 1
+              
+      @writeln   `2"`0Thank you. I believe you'll enjoy that little amulet.
+      @writeln   It may come in handy in battle.`2"
+
+      @set &Pgo to -&N1
+      @set &Pam to 1
+
+   @end
+@endcase 1
+
+@label done
+
+@endquest
