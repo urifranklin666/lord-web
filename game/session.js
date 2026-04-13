@@ -583,9 +583,10 @@ class GameSession {
       if (cost === 0) {
         this.ln(C.green + `\r\n  You are already at full health!` + C.reset);
       } else {
+        const rate       = getSetting('healerRate');
         const affordable = Math.min(cost, p.gold);
-        const hpGained   = Math.floor(affordable / getSetting('healerRate'));
-        p.gold -= hpGained * HEALER_RATE;
+        const hpGained   = Math.floor(affordable / rate);
+        p.gold -= hpGained * rate;
         p.hp    = Math.min(p.hpMax, p.hp + hpGained);
         storage.savePlayer(p);
         this.ln(C.green + `\r\n  Healed to ${p.hp}/${p.hpMax} HP.` + C.reset);
