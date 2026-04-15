@@ -604,10 +604,20 @@ class GameSession {
     this.ln();
 
     if (p.dead) {
-      const cost = 1000 * p.level;
-      this._context.resurrectCost = cost;
-      this.ln(C.red   + `  "You are dead, adventurer!"` + C.reset);
-      this.ln(C.gray  + `  Resurrection costs ${C.yellow}${commas(cost)}g${C.reset}`);
+      const fullCost = 1000 * p.level;
+      this._context.resurrectCost = fullCost;
+      this.ln(C.red + `  "You are dead, adventurer!"` + C.reset);
+      this.ln();
+      if (p.gold >= fullCost) {
+        this.ln(C.gray  + `  Full resurrection: ${C.yellow}${commas(fullCost)}g${C.gray} → restored to ${Math.floor(p.hpMax / 2)} HP` + C.reset);
+      } else if (p.gold > 0) {
+        this.ln(C.gray  + `  Full resurrection: ${C.yellow}${commas(fullCost)}g${C.gray} (you have ${C.yellow}${commas(p.gold)}g${C.gray})` + C.reset);
+        this.ln(C.dkgray + `  The healer will do what they can for ${commas(p.gold)}g → 1 HP` + C.reset);
+      } else {
+        this.ln(C.gray  + `  Full resurrection: ${C.yellow}${commas(fullCost)}g${C.gray} (you have nothing)` + C.reset);
+        this.ln(C.dkgray + `  The healer takes pity on the destitute...` + C.reset);
+      }
+      this.ln();
       this.ln(C.green + `  (R)esurrect   (L)eave` + C.reset);
       this.out(C.white + 'Choice: ');
       this.state = 'healer_menu';
@@ -629,14 +639,27 @@ class GameSession {
     if (ch === 'l') return this._renderMain();
 
     if (p.dead && ch === 'r') {
-      const cost = this._context.resurrectCost;
-      if (p.gold < cost) {
-        this.ln(C.red + `\r\n  "You cannot afford resurrection!"` + C.reset);
-      } else {
-        p.gold -= cost; p.dead = false; p.hp = Math.floor(p.hpMax / 2);
+      const fullCost = this._context.resurrectCost;
+      if (p.gold >= fullCost) {
+        p.gold -= fullCost;
+        p.dead = false;
+        p.hp = Math.floor(p.hpMax / 2);
         storage.savePlayer(p);
         this.ln(C.green + `\r\n  The healer chants and you are restored to life!` + C.reset);
         this.ln(C.gray  + `  HP: ${p.hp}/${p.hpMax}` + C.reset);
+      } else {
+        const paid = p.gold;
+        p.gold = 0;
+        p.dead = false;
+        p.hp = 1;
+        storage.savePlayer(p);
+        if (paid > 0) {
+          this.ln(C.green + `\r\n  The healer takes your ${commas(paid)}g and does what they can...` + C.reset);
+        } else {
+          this.ln(C.green + `\r\n  The healer sighs and restores a mere spark of life.` + C.reset);
+        }
+        this.ln(C.dkgray + `  You awaken barely breathing. HP: 1/${p.hpMax}` + C.reset);
+        this.ln(C.gray   + `  Seek shelter before you face anything dangerous.` + C.reset);
       }
       this._anyKey(() => this._renderMain());
       return;
