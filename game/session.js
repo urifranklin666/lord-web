@@ -454,6 +454,7 @@ class GameSession {
       if (rnd(1, 100) <= fleeChance) {
         // Successful flee — costs a fight use, ends encounter
         this.ln(C.yellow + `\r\n  You flee from battle!` + C.reset);
+        this.ln(C.gray   + `  HP: ${p.hp}/${p.hpMax}` + C.reset);
         p.fightsLeft--;
         storage.savePlayer(p);
         this._postFight();
@@ -476,6 +477,7 @@ class GameSession {
       const result = combat.useSpecial(p, monster);
       this.ln(`\r\n  ` + result.text);
       if (result.used) {
+        if (p.class === 3) this._context.backstabbed = true;
         monster.hp -= result.damage;
         if (monster.hp <= 0) return this._monsterDied(monster);
         const ma = combat.monsterAttack(p, monster);
@@ -518,6 +520,7 @@ class GameSession {
 
   _renderCombatMenu() {
     const p = this.player;
+    const monster = this._context.monster;
     const hasSpecial = (p.class === 1 && p.levelw > 0) ||
                        (p.class === 2 && p.levelm > 0) ||
                        (p.class === 3 && p.levelt > 0);
@@ -525,6 +528,9 @@ class GameSession {
     const specialName = CLASSES[p.class].skillName;
 
     this.ln();
+    if (monster) {
+      this.ln(C.gray + `  [ ${C.white}${monster.name}${C.gray} HP: ${C.red}${Math.max(0, monster.hp)}${C.gray} ]  [ Your HP: ${C.green}${p.hp}${C.gray}/${p.hpMax} ]` + C.reset);
+    }
     this.ln(C.green + `  (A)ttack   (F)lee   (G)em heal (${p.gem} gems)`);
     if (hasSpecial) {
       this.ln(C.cyan + `  (${specialKey}) ${specialName}  [${['', p.levelw, p.levelm, p.levelt][p.class]} uses left]`);
@@ -538,9 +544,20 @@ class GameSession {
     if (!alreadyLogged) {
       if (monster.deathMsg) this.ln(C.dkgreen + `\r\n  ` + monster.deathMsg + C.reset);
       this.ln(C.green  + `  You defeated the ${monster.name}!`);
-      this.ln(C.yellow + `  +${commas(monster.gold)} gold  +${commas(monster.exp)} exp` + C.reset);
       p.exp  += monster.exp;
       p.gold += monster.gold;
+
+      // Thief backstab bonus: steal extra 25–50% of the monster's gold
+      if (this._context.backstabbed) {
+        const stolen = Math.floor(monster.gold * (0.25 + Math.random() * 0.25));
+        p.gold += stolen;
+        this._context.backstabbed = false;
+        this.ln(C.yellow + `  +${commas(monster.gold)} gold  +${commas(monster.exp)} exp` + C.reset);
+        this.ln(C.dkgray + `  You rifle through the body and pocket ${commas(stolen)} extra gold!` + C.reset);
+      } else {
+        this.ln(C.yellow + `  +${commas(monster.gold)} gold  +${commas(monster.exp)} exp` + C.reset);
+      }
+
       if (!alreadyLogged) p.fightsLeft--;
     }
 
