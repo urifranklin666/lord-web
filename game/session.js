@@ -37,7 +37,7 @@ class GameSession {
 
   onKey(ch) {
     const singleKey = [
-      'main_menu','forest_menu','fight_choice',
+      'main_menu','forest_menu','encounter_menu','fight_choice',
       'bank_menu',
       'healer_menu','inn_menu','tavern_menu',
       'master_menu','pvp_list_page','pvp_confirm',
@@ -350,32 +350,51 @@ class GameSession {
       this.ln(DIV_BLUE.trimEnd());
       this.ln(C.dkgreen + `  Dark Forest` + C.gray + ` — A dense tangle of shadow and menace.` + C.reset);
       this.ln(DIV_BLUE.trimEnd());
-      this.ln();
     }
 
     if (p.dead) {
-      this.ln(C.red + `  You are dead! Visit the Healer to be resurrected.` + C.reset);
+      this.ln(C.red + `\r\n  You are dead! Visit the Healer to be resurrected.` + C.reset);
       this._anyKey(() => this._renderMain());
       return;
     }
 
+    this.ln(C.gray + `\r\n  Fights remaining: ${C.white}${p.fightsLeft}${C.gray}  HP: ${C.white}${p.hp}/${p.hpMax}` + C.reset);
+    this.ln();
+    this.ln(C.green + `  (L)ook for something to kill`);
+    this.ln(C.green + `  (H)ealers hut`);
+    this.ln(C.green + `  (R)eturn to town` + C.reset);
+    this.ln();
+    this.out(C.white + 'Choice: ');
+    this.state = 'forest_menu';
+  }
+
+  _state_forest_menu(ch) {
+    if (ch === 'h') return this._enterHealer();
+    if (ch === 'r') return this._renderMain();
+    if (ch !== 'l') { this.out(C.white + 'Choice: '); return; }
+
+    const p = this.player;
     if (p.fightsLeft <= 0) {
-      this.ln(C.red + `  You have no forest fights remaining today.` + C.reset);
+      this.ln(C.red + `\r\n  You have no forest fights remaining today.` + C.reset);
       this.ln(C.gray + `  Return tomorrow, or rest at the Inn.` + C.reset);
       this._anyKey(() => this._renderMain());
       return;
     }
 
+    this._lookForFight();
+  }
+
+  _lookForFight() {
+    const p = this.player;
+
     // Random event (30% chance)
     const lines = [];
-    const eventOut = (t) => lines.push(t);
-    const ev = events.rollForestEvent(p, eventOut);
-
+    const ev = events.rollForestEvent(p, t => lines.push(t));
     if (ev) {
+      this.ln();
       for (const l of lines) this.ln(l);
       if (ev.dead) { this.ln(); return this._playerDeath('the forest'); }
       if (ev.horseSell !== undefined) {
-        // Async sell prompt
         this._context.horseSellPrice = ev.horseSell;
         this.ln(C.green + `\r\n  (A)ccept  (D)ecline` + C.reset);
         this.out(C.white + 'Choice: ');
@@ -396,19 +415,8 @@ class GameSession {
     this.ln(C.gray   + `  Wields: ${C.white}${monster.weapon}${C.gray}  HP:${C.white}${monster.hp}${C.gray}  STR:${C.white}${monster.strength}` + C.reset);
     this.ln();
 
-    const hasSpecial = (p.class === 1 && p.levelw > 0) ||
-                       (p.class === 2 && p.levelm > 0) ||
-                       (p.class === 3 && p.levelt > 0);
-    const specialKey  = ['', 'W', 'M', 'T'][p.class];
-    const specialName = CLASSES[p.class].skillName;
-
-    this.ln(C.green + `  (A)ttack   (F)lee   (G)em heal (${p.gem} gems)`);
-    if (hasSpecial) {
-      this.ln(C.cyan + `  (${specialKey}) ${specialName}  [${['', p.levelw, p.levelm, p.levelt][p.class]} uses left]`);
-    }
-    this.ln();
-    this.out(C.white + 'Choice: ' + C.reset);
-    this.state = 'forest_menu';
+    this._renderCombatMenu();
+    this.state = 'encounter_menu';
   }
 
   _state_horse_offer(ch) {
@@ -426,7 +434,7 @@ class GameSession {
     this._anyKey(() => this._enterForest());
   }
 
-  _state_forest_menu(ch) {
+  _state_encounter_menu(ch) {
     const p = this.player;
     const monster = this._context.monster;
 
