@@ -10,7 +10,7 @@ const { getWeapons, getArmour } = require('./weapons');
 const { C, colorize, commas, titleBar, rnd } = require('./text');
 const { CLASSES, LEVEL_EXP } = require('./constants');
 const { getSetting } = require('./storage');
-const { loadArt } = require('./ansi');
+const { loadArt, getLordScreen } = require('./ansi');
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────
 const CRLF   = '\r\n';
@@ -342,11 +342,16 @@ class GameSession {
 
   _enterForest() {
     const p = this.player;
-    this.cls();
-    this.ln(DIV_BLUE.trimEnd());
-    this.ln(C.dkgreen + `  Dark Forest` + C.gray + ` — A dense tangle of shadow and menace.` + C.reset);
-    this.ln(DIV_BLUE.trimEnd());
-    this.ln();
+    const forestArt = getLordScreen('FOREST');
+    if (forestArt) {
+      this.out(forestArt);
+    } else {
+      this.cls();
+      this.ln(DIV_BLUE.trimEnd());
+      this.ln(C.dkgreen + `  Dark Forest` + C.gray + ` — A dense tangle of shadow and menace.` + C.reset);
+      this.ln(DIV_BLUE.trimEnd());
+      this.ln();
+    }
 
     if (p.dead) {
       this.ln(C.red + `  You are dead! Visit the Healer to be resurrected.` + C.reset);
@@ -578,8 +583,8 @@ class GameSession {
 
   _enterHealer() {
     const p = this.player;
-    this.cls();
-    this.ln(C.white + titleBar(`Healer's Hut`) + C.reset);
+    const art = getLordScreen('HEAL');
+    if (art) { this.out(art); } else { this.cls(); this.ln(C.white + titleBar(`Healer's Hut`) + C.reset); }
     this.ln();
     this.ln(C.green + `  A kindly healer greets you.` + C.reset);
     this.ln(C.gray  + `  HP: ${C.green}${p.hp}/${p.hpMax}${C.gray}   Gold: ${C.yellow}${commas(p.gold)}` + C.reset);
@@ -688,8 +693,8 @@ class GameSession {
   _enterWeaponShop() {
     const p = this.player;
     const WEAPONS = getWeapons();
-    this.cls();
-    this.ln(C.white + titleBar('Weapons Shop') + C.reset);
+    const art = getLordScreen('ARTHUR');
+    if (art) { this.out(art); } else { this.cls(); this.ln(C.white + titleBar('Weapons Shop') + C.reset); }
     this.ln(C.gray  + `  Current: ${C.white}${p.weapon}${C.gray}  Gold: ${C.yellow}${commas(p.gold)}` + C.reset);
     this.ln();
     WEAPONS.forEach((w, i) => {
@@ -736,8 +741,8 @@ class GameSession {
   _enterArmourShop() {
     const p = this.player;
     const ARMOUR = getArmour();
-    this.cls();
-    this.ln(C.white + titleBar(`Abdul's Armour Shop`) + C.reset);
+    const art = getLordScreen('ABDUL');
+    if (art) { this.out(art); } else { this.cls(); this.ln(C.white + titleBar(`Abdul's Armour Shop`) + C.reset); }
     this.ln(C.gray  + `  Current: ${C.white}${p.arm}${C.gray}  Gold: ${C.yellow}${commas(p.gold)}` + C.reset);
     this.ln();
     ARMOUR.forEach((a, i) => {
@@ -783,8 +788,8 @@ class GameSession {
 
   _enterBank() {
     const p = this.player;
-    this.cls();
-    this.ln(C.white + titleBar('Town Bank') + C.reset);
+    const art = getLordScreen('BANK');
+    if (art) { this.out(art); } else { this.cls(); this.ln(C.white + titleBar('Town Bank') + C.reset); }
     this.ln();
     this.ln(C.gray + `  Gold in hand: ${C.yellow}${commas(p.gold)}` + C.reset);
     this.ln(C.gray + `  Gold in bank: ${C.yellow}${commas(p.bank)}` + C.reset);
@@ -875,7 +880,8 @@ class GameSession {
 
   _enterMaster() {
     const p = this.player;
-    this.cls();
+    const art = getLordScreen('TURGON');
+    if (art) { this.out(art); } else { this.cls(); }
     const trainerName = trainers.getTrainerName(p.level);
     this.ln(C.white + titleBar(`${trainerName}'s Training Hall`) + C.reset);
     this.ln();
@@ -1072,8 +1078,8 @@ class GameSession {
   // ══════════════════════════════════════════════════════════════════════════
 
   _enterTavern() {
-    this.cls();
-    this.ln(C.brown + titleBar('The Dark Cloak Tavern') + C.reset);
+    const art = getLordScreen('CLOAK');
+    if (art) { this.out(art); } else { this.cls(); this.ln(C.brown + titleBar('The Dark Cloak Tavern') + C.reset); }
     this.ln(C.brown + `  A blazing fire warms your heart as well as your body in this fragrant` + C.reset);
     this.ln(C.brown + `  roadhouse. Many a wary traveler has found refuge here.` + C.reset);
     this.ln();
@@ -1575,7 +1581,8 @@ class GameSession {
     const p  = this.player;
     const gs = storage.getGameState();
     const dr = storage.getDragonState();
-    this.cls();
+    const dragArt = getLordScreen('DRAG');
+    if (dragArt) { this.out(dragArt); } else { this.cls(); }
     this.ln(C.dkred + titleBar("The Red Dragon's Lair") + C.reset);
     this.ln();
     this.ln(C.gray + `  You find a hidden cave. A burst of heat washes over you.` + C.reset);
