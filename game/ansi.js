@@ -127,11 +127,23 @@ function _loadLordDat() {
       end++;
     }
 
-    // Decode CP437 bytes, then convert LORD color codes to ANSI
-    const raw   = cp437ToUtf8(buf.slice(start, end));
-    const hasOwnClear = raw.includes('`c') || raw.includes('\x1b[2J');
+    // Decode CP437 bytes to UTF-8
+    const raw = cp437ToUtf8(buf.slice(start, end));
+
+    // Strip menu option lines from lord-coded screens.
+    // Menu options use the pattern (`X where X is a LORD color code character,
+    // e.g. (`5C`2)onverse or (`0R`2)eturn. Pure ANSI art screens don't contain
+    // this pattern, so they pass through unchanged.
+    const menuIdx = raw.search(/\(`[0-9!@#$%&]/);
+    let contentRaw = raw;
+    if (menuIdx !== -1) {
+      const lineBreak = raw.lastIndexOf('\n', menuIdx);
+      contentRaw = (lineBreak >= 0 ? raw.slice(0, lineBreak + 1) : raw).trimEnd() + '\r\n';
+    }
+
+    const hasOwnClear = contentRaw.includes('`c') || contentRaw.includes('\x1b[2J');
     const prefix = hasOwnClear ? '' : '\x1b[2J\x1b[H';
-    _lordScreens.set(name, prefix + lordToAnsi(raw) + '\x1b[0m');
+    _lordScreens.set(name, prefix + lordToAnsi(contentRaw) + '\x1b[0m');
 
     i = end;
   }

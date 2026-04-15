@@ -592,9 +592,14 @@ class GameSession {
   _enterHealer() {
     const p = this.player;
     const art = getLordScreen('HEAL');
-    if (art) { this.out(art); } else { this.cls(); this.ln(C.white + titleBar(`Healer's Hut`) + C.reset); }
-    this.ln();
-    this.ln(C.green + `  A kindly healer greets you.` + C.reset);
+    if (art) {
+      this.out(art);
+    } else {
+      this.cls();
+      this.ln(C.white + titleBar(`Healer's Hut`) + C.reset);
+      this.ln();
+      this.ln(C.green + `  A kindly healer greets you.` + C.reset);
+    }
     this.ln(C.gray  + `  HP: ${C.green}${p.hp}/${p.hpMax}${C.gray}   Gold: ${C.yellow}${commas(p.gold)}` + C.reset);
     this.ln();
 
@@ -797,8 +802,12 @@ class GameSession {
   _enterBank() {
     const p = this.player;
     const art = getLordScreen('BANK');
-    if (art) { this.out(art); } else { this.cls(); this.ln(C.white + titleBar('Town Bank') + C.reset); }
-    this.ln();
+    if (art) {
+      this.out(art);
+    } else {
+      this.cls();
+      this.ln(C.white + titleBar('Town Bank') + C.reset);
+    }
     this.ln(C.gray + `  Gold in hand: ${C.yellow}${commas(p.gold)}` + C.reset);
     this.ln(C.gray + `  Gold in bank: ${C.yellow}${commas(p.bank)}` + C.reset);
     this.ln();
@@ -889,9 +898,13 @@ class GameSession {
   _enterMaster() {
     const p = this.player;
     const art = getLordScreen('TURGON');
-    if (art) { this.out(art); } else { this.cls(); }
     const trainerName = trainers.getTrainerName(p.level);
-    this.ln(C.white + titleBar(`${trainerName}'s Training Hall`) + C.reset);
+    if (art) {
+      this.out(art);
+    } else {
+      this.cls();
+      this.ln(C.white + titleBar(`${trainerName}'s Training Hall`) + C.reset);
+    }
     this.ln();
 
     if (!combat.canLevelUp(p)) {
@@ -1087,9 +1100,14 @@ class GameSession {
 
   _enterTavern() {
     const art = getLordScreen('CLOAK');
-    if (art) { this.out(art); } else { this.cls(); this.ln(C.brown + titleBar('The Dark Cloak Tavern') + C.reset); }
-    this.ln(C.brown + `  A blazing fire warms your heart as well as your body in this fragrant` + C.reset);
-    this.ln(C.brown + `  roadhouse. Many a wary traveler has found refuge here.` + C.reset);
+    if (art) {
+      this.out(art);
+    } else {
+      this.cls();
+      this.ln(C.brown + titleBar('The Dark Cloak Tavern') + C.reset);
+      this.ln(C.brown + `  A blazing fire warms your heart as well as your body in this fragrant` + C.reset);
+      this.ln(C.brown + `  roadhouse. Many a wary traveler has found refuge here.` + C.reset);
+    }
     this.ln();
     this.ln(C.green + `  (C)onverse with the Patrons`);
     this.ln(C.green + `  (D)aily News`);
