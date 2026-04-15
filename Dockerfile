@@ -10,6 +10,7 @@ RUN npm install --omit=dev
 COPY server.js ./
 COPY game/    ./game/
 COPY public/  ./public/
+COPY art/     ./art/
 
 # Data directory is a volume mount at runtime
 # (contains LENEMY.DAT, LORDTXT.DAT, players.json, etc.)
