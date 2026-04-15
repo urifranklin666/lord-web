@@ -173,7 +173,7 @@ function fightPlayer(attacker, defender) {
   while (atkHp > 0 && defHp > 0 && rounds < 50) {
     rounds++;
     const ad = calcHit(attacker.strength, defender.def);
-    atkHp = atkHp; defHp -= ad.damage;
+    defHp -= ad.damage;
     log.push(`${C.green}${attacker.name} hits for ${ad.damage}!${C.reset}`);
     if (defHp <= 0) break;
 

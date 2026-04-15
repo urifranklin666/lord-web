@@ -714,7 +714,7 @@ class GameSession {
       if (!w) return;
       const owned     = p.weaponNum === i ? C.yellow + ` ◄ yours` : '';
       const canAfford = p.gold >= w.price ? C.green : C.gray;
-      this.ln(`  ${canAfford}(${i}) ${w.name.padEnd(18)} +${String(w.strength).padEnd(5)} STR  ${commas(w.price)}g${owned}${C.reset}`);
+      this.ln(`  ${canAfford}(${i}) ${w.name.slice(0,18).padEnd(18)} +${String(w.strength).padEnd(5)} STR  ${commas(w.price)}g${owned}${C.reset}`);
     });
     this.ln();
     this.ln(C.gray + `  Number to buy, or (R)eturn:` + C.reset);
@@ -762,7 +762,7 @@ class GameSession {
       if (!a) return;
       const owned     = p.armNum === i ? C.yellow + ` ◄ yours` : '';
       const canAfford = i === 0 || p.gold >= a.price ? C.green : C.gray;
-      this.ln(`  ${canAfford}(${i}) ${a.name.padEnd(18)} +${String(a.defense).padEnd(5)} DEF  ${i === 0 ? 'free' : commas(a.price) + 'g'}${owned}${C.reset}`);
+      this.ln(`  ${canAfford}(${i}) ${a.name.slice(0,18).padEnd(18)} +${String(a.defense).padEnd(5)} DEF  ${i === 0 ? 'free' : commas(a.price) + 'g'}${owned}${C.reset}`);
     });
     this.ln();
     this.ln(C.gray + `  Number to buy, or (R)eturn:` + C.reset);
@@ -970,7 +970,7 @@ class GameSession {
       const markerStr = pl.married >= 0 ? C.yellow + ` ♥` : '';
       this.ln(
         C.gray  + `  ${String(i + 1).padEnd(3)} ` +
-        C.white + pl.name.padEnd(18) +
+        C.white + pl.name.slice(0,18).padEnd(18) +
         C.gray  + String(pl.level).padEnd(4) + cls.padEnd(13) +
         (pl.hp < pl.hpMax * 0.3 ? C.red : C.green) + `${pl.hp}/${pl.hpMax}`.padEnd(8) +
         C.gray  + desc + markerStr + C.reset
@@ -1041,7 +1041,7 @@ class GameSession {
     targets.forEach((pl, i) => {
       const cls  = CLASSES[pl.class]?.name || '?';
       const desc = appearance.getAppearance(pl);
-      this.ln(C.gray + `  (${i + 1}) ${C.white}${pl.name.padEnd(18)}${C.gray} Lv${pl.level} ${cls}  HP:${pl.hp}/${pl.hpMax}  ${desc}` + C.reset);
+      this.ln(C.gray + `  (${i + 1}) ${C.white}${pl.name.slice(0,18).padEnd(18)}${C.gray} Lv${pl.level} ${cls}  HP:${pl.hp}/${pl.hpMax}  ${desc}` + C.reset);
     });
     this.ln();
     this.ln(C.gray + `  Enter number to attack, or (R)eturn:` + C.reset);
