@@ -10,6 +10,7 @@ const { getWeapons, getArmour } = require('./weapons');
 const { C, colorize, commas, titleBar, rnd } = require('./text');
 const { CLASSES, LEVEL_EXP } = require('./constants');
 const { getSetting } = require('./storage');
+const { loadArt } = require('./ansi');
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────
 const CRLF   = '\r\n';
@@ -101,6 +102,16 @@ class GameSession {
   // ══════════════════════════════════════════════════════════════════════════
 
   start() {
+    const splash = loadArt('lordad.ans');
+    if (splash) {
+      this.out(splash);
+      this._anyKey(() => this._showLogin());
+    } else {
+      this._showLogin();
+    }
+  }
+
+  _showLogin() {
     this.cls();
     this._renderBanner();
     this.ln(C.yellow + 'Enter your name, or ' + C.white + 'NEW' + C.yellow + ' to create an account:' + C.reset);
@@ -1547,6 +1558,20 @@ class GameSession {
   // ══════════════════════════════════════════════════════════════════════════
 
   _enterDragonLair() {
+    const p  = this.player;
+    const gs = storage.getGameState();
+    const dr = storage.getDragonState();
+
+    const lairArt = loadArt('lairans.ans');
+    if (lairArt) {
+      this.out(lairArt);
+      this._anyKey(() => this._renderDragonLair());
+    } else {
+      this._renderDragonLair();
+    }
+  }
+
+  _renderDragonLair() {
     const p  = this.player;
     const gs = storage.getGameState();
     const dr = storage.getDragonState();
