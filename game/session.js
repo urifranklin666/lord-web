@@ -415,31 +415,34 @@ class GameSession {
     const monster = this._context.monster;
 
     if (ch === 'g') {
-      if (p.gem <= 0) { this.ln(C.red + `\r\n  No gems!` + C.reset); this.out(C.white + 'Choice: '); return; }
+      if (p.gem <= 0) { this.ln(C.red + `\r\n  No gems!` + C.reset); this._renderCombatMenu(); return; }
       p.gem--;
       const GEM_HEAL = getSetting('gemHeal');
       const healed = Math.min(GEM_HEAL, p.hpMax - p.hp);
       p.hp = Math.min(p.hpMax, p.hp + GEM_HEAL);
       this.ln(C.green + `\r\n  You use a gem: +${healed} HP (${p.hp}/${p.hpMax})` + C.reset);
-      this.out(C.white + 'Choice: ');
+      this._renderCombatMenu();
       return;
     }
 
     if (ch === 'f') {
       const fleeChance = p.class === 3 ? 80 : 60;
       if (rnd(1, 100) <= fleeChance) {
+        // Successful flee — costs a fight use, ends encounter
         this.ln(C.yellow + `\r\n  You flee from battle!` + C.reset);
+        p.fightsLeft--;
+        storage.savePlayer(p);
+        this._postFight();
       } else {
+        // Failed flee — monster attacks, combat continues
         this.ln(C.red + `\r\n  You tried to flee but the monster blocks your path!` + C.reset);
         const ma = combat.monsterAttack(p, monster);
         this.ln(`  ` + ma.text);
         p.hp -= ma.damage;
-        if (p.hp <= 0) { p.hp = 0; return this._playerDeath(monster.name); }
-        this.ln(C.gray + `  HP: ${p.hp}/${p.hpMax}` + C.reset);
+        if (p.hp <= 0) { p.hp = 0; p.fightsLeft--; return this._playerDeath(monster.name); }
+        this.ln(C.gray + `  Monster HP: ${Math.max(0, monster.hp)}  Your HP: ${p.hp}/${p.hpMax}` + C.reset);
+        this._renderCombatMenu();
       }
-      p.fightsLeft--;
-      storage.savePlayer(p);
-      this._postFight();
       return;
     }
 
@@ -454,24 +457,56 @@ class GameSession {
         const ma = combat.monsterAttack(p, monster);
         this.ln(`  ` + ma.text);
         p.hp -= ma.damage;
-        if (p.hp <= 0) { p.hp = 0; return this._playerDeath(monster.name); }
-        this.ln(C.gray + `  Monster HP:${Math.max(0, monster.hp)}  Your HP:${p.hp}/${p.hpMax}` + C.reset);
+        if (p.hp <= 0) { p.hp = 0; p.fightsLeft--; return this._playerDeath(monster.name); }
+        this.ln(C.gray + `  Monster HP: ${Math.max(0, monster.hp)}  Your HP: ${p.hp}/${p.hpMax}` + C.reset);
       }
-      this.out(C.white + 'Choice: ');
+      this._renderCombatMenu();
       return;
     }
 
     if (ch !== 'a') { this.out(C.white + 'Choice: '); return; }
 
-    // Full fight
+    // One round — player attacks first
     this.ln();
-    const result = combat.fightMonster(p, monster);
-    for (const l of result.log) this.ln(`  ` + l);
-    this.ln();
-    p.fightsLeft--;
+    const pa = combat.playerAttack(p, monster);
+    this.ln(`  ` + pa.text);
+    monster.hp -= pa.damage;
 
-    if (result.dead) return this._playerDeath(monster.name);
-    this._monsterDied(monster, true);
+    if (monster.hp <= 0) {
+      return this._monsterDied(monster);
+    }
+
+    // Monster strikes back
+    const ma = combat.monsterAttack(p, monster);
+    this.ln(`  ` + ma.text);
+    p.hp -= ma.damage;
+
+    if (p.hp <= 0) {
+      p.hp = 0;
+      p.fightsLeft--;
+      return this._playerDeath(monster.name);
+    }
+
+    // Still fighting — show status and re-prompt
+    this.ln(C.gray + `  Monster HP: ${Math.max(0, monster.hp)}  Your HP: ${p.hp}/${p.hpMax}` + C.reset);
+    this._renderCombatMenu();
+  }
+
+  _renderCombatMenu() {
+    const p = this.player;
+    const hasSpecial = (p.class === 1 && p.levelw > 0) ||
+                       (p.class === 2 && p.levelm > 0) ||
+                       (p.class === 3 && p.levelt > 0);
+    const specialKey  = ['', 'W', 'M', 'T'][p.class];
+    const specialName = CLASSES[p.class].skillName;
+
+    this.ln();
+    this.ln(C.green + `  (A)ttack   (F)lee   (G)em heal (${p.gem} gems)`);
+    if (hasSpecial) {
+      this.ln(C.cyan + `  (${specialKey}) ${specialName}  [${['', p.levelw, p.levelm, p.levelt][p.class]} uses left]`);
+    }
+    this.ln();
+    this.out(C.white + 'Choice: ' + C.reset);
   }
 
   _monsterDied(monster, alreadyLogged = false) {
