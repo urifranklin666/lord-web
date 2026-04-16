@@ -7,10 +7,27 @@ const events     = require('./events');
 const trainers   = require('./trainers');
 const appearance = require('./appearance');
 const { getWeapons, getArmour } = require('./weapons');
-const { C, colorize, commas, titleBar, rnd } = require('./text');
+const { C, colorize, commas, titleBar, divider, menuPrompt, anyKeyMsg, statRow, rnd } = require('./text');
 const { CLASSES, LEVEL_EXP } = require('./constants');
 const { getSetting } = require('./storage');
 const { loadArt, getLordScreen } = require('./ansi');
+const fx = require('./combat_fx');
+
+// ── Time of day ───────────────────────────────────────────────────────────────
+function getTimeOfDay() {
+  const h = new Date().getHours();
+  if (h >= 22 || h < 6)  return 'night';
+  if (h >= 18)            return 'evening';
+  if (h >= 12)            return 'afternoon';
+  return 'morning';
+}
+
+const TOD_LABEL = {
+  morning:   C => C.yellow  + 'Morning',
+  afternoon: C => C.white   + 'Afternoon',
+  evening:   C => C.brown   + 'Evening',
+  night:     C => C.dkred   + 'Night',
+};
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────
 const CRLF   = '\r\n';
@@ -18,8 +35,12 @@ const CLRSCR = '\x1b[2J\x1b[H';
 
 function line(text = '') { return text + CRLF; }
 
-const DIV_RED  = C.dkred  + '─'.repeat(79) + C.reset + CRLF;
-const DIV_BLUE = C.dkblue + '─'.repeat(79) + C.reset + CRLF;
+// Full-width section dividers — use divider() from text.js for inline,
+// these CRLF-terminated versions are for this.ln() calls.
+const DIV_RED   = divider(79, 'red')   + CRLF;
+const DIV_BLUE  = divider(79, 'blue')  + CRLF;
+const DIV_GREEN = divider(79, 'green') + CRLF;
+const DIV_DIM   = divider(79, 'dim')   + CRLF;
 
 // ── GameSession ───────────────────────────────────────────────────────────────
 class GameSession {
@@ -42,7 +63,7 @@ class GameSession {
       'healer_menu','inn_menu','tavern_menu',
       'master_menu','pvp_list_page','pvp_confirm',
       'players_list','any_key','death_screen',
-      'blackjack_menu','register_sex','register_class',
+      'blackjack_menu','blackjack_end','register_sex','register_class',
       'horse_offer','amulet_offer',
       'bartender_menu','gem_trade',
       'dragon_fight','marriage_reply','mail_read','propose_confirm',
@@ -86,7 +107,7 @@ class GameSession {
   // ── "Press any key" helper ────────────────────────────────────────────────
   _anyKey(nextFn) {
     this._context.anyKeyNext = nextFn;
-    this.out(C.gray + '\r\n  [Press any key]' + C.reset);
+    this.out(anyKeyMsg());
     this.state = 'any_key';
   }
 
@@ -102,7 +123,7 @@ class GameSession {
   // ══════════════════════════════════════════════════════════════════════════
 
   start() {
-    const splash = loadArt('lordad.ans');
+    const splash = loadArt('title.ans') || loadArt('lordad.ans');
     if (splash) {
       this.out(splash);
       this._anyKey(() => this._showLogin());
@@ -278,42 +299,77 @@ class GameSession {
     const p = this.player;
     this.state = 'main_menu';
 
-    this.ln(DIV_RED.trimEnd());
-    const hpColor = p.hp < p.hpMax * 0.3 ? C.red : C.green;
-    this.ln(
-      C.white + ` ${p.name}` +
-      C.gray  + `  Lv${p.level} ${CLASSES[p.class]?.name}` +
-      C.gray  + `  HP:` + hpColor + `${p.hp}/${p.hpMax}` +
-      C.gray  + `  STR:${p.strength}  DEF:${p.def}  CHM:${p.charm}` +
-      C.yellow+ `  Gold:${commas(p.gold)}` +
-      C.gray  + `  EXP:${commas(p.exp)}` + C.reset
-    );
-    this.ln(
-      C.gray + `  Fights:${C.white}${p.fightsLeft}  ${C.gray}PvP:${C.white}${p.humanLeft}` +
-      C.gray + `  Gems:${C.white}${p.gem}` +
-      (p.extra     ? C.yellow  + `  [Horse]`   : '') +
-      (p.hasAmulet ? C.cyan   + `  [Amulet]`  : '') +
-      (p.married >= 0 ? C.magenta + `  [Married]` : '') +
-      (p.dead   ? C.red + `  [DEAD — visit Healer]` : '') + C.reset
-    );
-    this.ln(DIV_RED.trimEnd());
-    this.ln();
-    this.ln(C.brown  + `  `  + C.yellow + `Legend of the Red Dragon` + C.gray + ` — Main Menu` + C.reset);
-    this.ln();
-    this.ln(C.dkgreen + `  (F)` + C.green + `orest               ` + C.dkgreen + `(P)` + C.green + `layer Battle`);
-    this.ln(C.dkgreen + `  (H)` + C.green + `ealer               ` + C.dkgreen + `(I)` + C.green + `nn — Rest & Recover`);
-    this.ln(C.dkgreen + `  (W)` + C.green + `eapons Shop         ` + C.dkgreen + `(A)` + C.green + `rmour Shop`);
-    this.ln(C.dkgreen + `  (B)` + C.green + `ank                 ` + C.dkgreen + `(V)` + C.green + `iew Players`);
-    this.ln(C.dkgreen + `  (T)` + C.green + `avern               ` + C.dkgreen + `(S)` + C.green + `tats`);
-    this.ln(C.dkred   + `  (D)` + C.red   + `ragon's Lair        ` + C.dkgreen + `(?)` + C.green + `Help`);
-    if (combat.canLevelUp(p)) {
-      this.ln(C.red + `  (L)evel Up! *** You are ready for the next Master! ***` + C.reset);
-    } else {
-      this.ln(C.gray + `  (L)evel Up? (visit Master when ready)` + C.reset);
+    // ── Main header art ─────────────────────────────────────────────────────
+    const headerArt = loadArt('mainheader.ans');
+    if (headerArt) {
+      this.cls();
+      this.out(headerArt);
+      this.ln();
     }
-    this.ln(C.dkred  + `  (Q)` + C.red + `uit` + C.reset);
+
+    // ── Status bar ──────────────────────────────────────────────────────────
+    this.ln(DIV_RED.trimEnd());
+    const hpColor  = p.hp < p.hpMax * 0.3 ? C.red : (p.hp < p.hpMax * 0.6 ? C.yellow : C.green);
+    const hpBar    = hpColor + `${p.hp}` + C.dkgray + `/` + C.gray + `${p.hpMax}`;
+    const goldStr  = C.yellow + commas(p.gold) + C.dkgray + `g`;
+    const expStr   = C.white  + commas(p.exp)  + C.gray   + ` xp`;
+    this.ln(
+      C.white  + ` ${p.name}` +
+      C.dkgray + `  ·  ` +
+      C.dkgray + `Lv` + C.white + `${p.level}` +
+      C.dkgray + ` ${CLASSES[p.class]?.name}` +
+      C.dkgray + `  ·  ` +
+      C.dkgray + `HP ` + hpBar +
+      C.dkgray + `  STR ` + C.white + `${p.strength}` +
+      C.dkgray + `  DEF ` + C.white + `${p.def}` +
+      C.dkgray + `  CHM ` + C.white + `${p.charm}` +
+      C.dkgray + `  ·  ` + goldStr +
+      C.dkgray + `  ` + expStr + C.reset
+    );
+    // Second status line — resources + flags
+    const flags = [
+      p.extra     ? C.yellow  + `[Horse]`              : '',
+      p.hasAmulet ? C.cyan    + `[Amulet]`             : '',
+      p.married >= 0 ? C.magenta + `[Married]`         : '',
+      p.dead      ? C.red     + `[DEAD — see Healer]`  : '',
+    ].filter(Boolean).join(C.dkgray + `  `);
+    const tod = getTimeOfDay();
+    this.ln(
+      C.dkgray + `  Fights ` + C.white + `${p.fightsLeft}` +
+      C.dkgray + `  PvP `   + C.white + `${p.humanLeft}` +
+      C.dkgray + `  Gems `  + C.white + `${p.gem}` +
+      C.dkgray + `  ` + TOD_LABEL[tod](C) +
+      (flags ? C.dkgray + `    ` + flags : '') + C.reset
+    );
+    this.ln(DIV_RED.trimEnd());
     this.ln();
-    this.out(C.white + 'Choice: ' + C.reset);
+
+    // ── Title ───────────────────────────────────────────────────────────────
+    this.ln(C.dkred + `  ` + C.red + `Legend of the Red Dragon` + C.dkgray + `  —  ` + C.gray + `Main Menu` + C.reset);
+    this.ln();
+
+    // ── Menu columns ────────────────────────────────────────────────────────
+    const key  = (ch) => C.dkgreen + `(` + C.green + ch + C.dkgreen + `)`;
+    const rkey = (ch) => C.dkred   + `(` + C.red   + ch + C.dkred   + `)`;
+    const lbl  = (t)  => C.green   + t;
+    const rlbl = (t)  => C.red     + t;
+
+    this.ln(`  ${key('F')}${lbl('orest')}             ${key('P')}${lbl('layer Battle')}`);
+    this.ln(`  ${key('H')}${lbl('ealer')}             ${key('I')}${lbl('nn — Rest & Recover')}`);
+    this.ln(`  ${key('W')}${lbl('eapons Shop')}       ${key('A')}${lbl('rmour Shop')}`);
+    this.ln(`  ${key('B')}${lbl('ank')}               ${key('V')}${lbl('iew Players')}`);
+    this.ln(`  ${key('T')}${lbl('avern')}             ${key('S')}${lbl('tats')}`);
+    this.ln(`  ${rkey('D')}${rlbl(`ragon's Lair`)}      ${key('?')}${lbl('Help')}`);
+
+    if (combat.canLevelUp(p)) {
+      this.ln();
+      this.ln(C.yellow + `  ` + C.red + `►` + C.yellow + ` (L)evel Up! — you are ready for the next Master!` + C.reset);
+    } else {
+      this.ln(`  ${key('L')}${lbl('evel Up')}` + C.dkgray + ` (visit Master when ready)` + C.reset);
+    }
+    this.ln(`  ${rkey('Q')}${rlbl('uit')}` + C.reset);
+    this.ln();
+    this.out(menuPrompt());
   }
 
   _state_main_menu(ch) {
@@ -332,7 +388,7 @@ class GameSession {
       case 'd': return this._enterDragonLair();
       case '?': return this._enterHints();
       case 'q': return this._quit();
-      default:  this.out(C.white + 'Choice: ');
+      default:  this.out(menuPrompt());
     }
   }
 
@@ -342,9 +398,10 @@ class GameSession {
 
   _enterForest() {
     const p = this.player;
-    const forestArt = getLordScreen('FOREST');
+    const forestArt = loadArt('forest.ans') || getLordScreen('FOREST');
     if (forestArt) {
       this.out(forestArt);
+      this.ln();
     } else {
       this.cls();
       this.ln(DIV_BLUE.trimEnd());
@@ -358,20 +415,22 @@ class GameSession {
       return;
     }
 
-    this.ln(C.gray + `\r\n  Fights remaining: ${C.white}${p.fightsLeft}${C.gray}  HP: ${C.white}${p.hp}/${p.hpMax}` + C.reset);
+    const hpColor = p.hp < p.hpMax * 0.3 ? C.red : (p.hp < p.hpMax * 0.6 ? C.yellow : C.green);
+    this.ln(C.dkgray + `\r\n  Fights remaining: ` + C.white + `${p.fightsLeft}` +
+            C.dkgray + `   HP: ` + hpColor + `${p.hp}` + C.dkgray + `/` + C.gray + `${p.hpMax}` + C.reset);
     this.ln();
-    this.ln(C.green + `  (L)ook for something to kill`);
-    this.ln(C.green + `  (H)ealers hut`);
-    this.ln(C.green + `  (R)eturn to town` + C.reset);
+    this.ln(C.dkgreen + `  (L)` + C.green + `ook for something to kill`);
+    this.ln(C.dkgreen + `  (H)` + C.green + `ealers hut`);
+    this.ln(C.dkgreen + `  (R)` + C.green + `eturn to town` + C.reset);
     this.ln();
-    this.out(C.white + 'Choice: ');
+    this.out(menuPrompt());
     this.state = 'forest_menu';
   }
 
   _state_forest_menu(ch) {
     if (ch === 'h') return this._enterHealer();
     if (ch === 'r') return this._renderMain();
-    if (ch !== 'l') { this.out(C.white + 'Choice: '); return; }
+    if (ch !== 'l') { this.out(menuPrompt()); return; }
 
     const p = this.player;
     if (p.fightsLeft <= 0) {
@@ -387,18 +446,33 @@ class GameSession {
   _lookForFight() {
     const p = this.player;
 
-    // Random event (30% chance)
+    // At night, 15% extra chance of a dangerous encounter before the main event roll
+    const tod = getTimeOfDay();
+    if (tod === 'night' && rnd(1, 100) <= 15) {
+      this.ln(C.dkred + `  The darkness presses close around you...` + C.reset);
+    }
+
+    // Random event (30% chance; evening bumped to 38%)
+    const evRoll = tod === 'evening' ? 38 : 30;
     const lines = [];
-    const ev = events.rollForestEvent(p, t => lines.push(t));
+    const ev = events.rollForestEvent(p, t => lines.push(t), evRoll);
     if (ev) {
       this.ln();
       for (const l of lines) this.ln(l);
       if (ev.dead) { this.ln(); return this._playerDeath('the forest'); }
       if (ev.horseSell !== undefined) {
         this._context.horseSellPrice = ev.horseSell;
-        this.ln(C.green + `\r\n  (A)ccept  (D)ecline` + C.reset);
-        this.out(C.white + 'Choice: ');
+        this.ln(C.dkgreen + `\r\n  (` + C.green + `A` + C.dkgreen + `)ccept  (` + C.green + `D` + C.dkgreen + `)ecline` + C.reset);
+        this.out(menuPrompt());
         this.state = 'horse_offer';
+        return;
+      }
+      if (ev.amuletOffer !== undefined) {
+        this._context.amuletCost = ev.amuletOffer;
+        this.ln();
+        this.ln(C.green + `  (B)uy   (D)ecline` + C.reset);
+        this.out(menuPrompt());
+        this.state = 'amulet_offer';
         return;
       }
       this.ln();
@@ -408,11 +482,16 @@ class GameSession {
     const monster = monsters.randomMonster(p.level);
     this._context.monster = monster;
 
-    this.ln(C.gray + `  Fights remaining: ${C.white}${p.fightsLeft}${C.gray}  HP: ${C.white}${p.hp}/${p.hpMax}` + C.reset);
-    this.ln();
-    this.ln(C.yellow + `  You venture deeper into the forest...`);
-    this.ln(C.red    + `  A ${C.white}${monster.name}${C.red} leaps out!`);
-    this.ln(C.gray   + `  Wields: ${C.white}${monster.weapon}${C.gray}  HP:${C.white}${monster.hp}${C.gray}  STR:${C.white}${monster.strength}` + C.reset);
+    // Store max HP for combat status display
+    monster.hpMax = monster.hp;
+    this.ln(DIV_GREEN.trimEnd());
+    this.ln(C.yellow + `  You venture deeper into the forest...` + C.reset);
+    this.ln(C.red    + `  A ` + C.white + `${monster.name}` + C.red + ` leaps out at you!` + C.reset);
+    this.ln(
+      C.dkgray + `  Wields ` + C.white + `${monster.weapon}` +
+      C.dkgray + `   HP ` + C.green + `${monster.hp}` +
+      C.dkgray + `   STR ` + C.white + `${monster.strength}` + C.reset
+    );
     this.ln();
 
     this._renderCombatMenu();
@@ -450,7 +529,7 @@ class GameSession {
     }
 
     if (ch === 'f') {
-      const fleeChance = p.class === 3 ? 80 : 60;
+      const fleeChance = (p.class === 3 ? 80 : 60) + Math.floor((p.charm || 0) / 5);
       if (rnd(1, 100) <= fleeChance) {
         // Successful flee — costs a fight use, ends encounter
         this.ln(C.yellow + `\r\n  You flee from battle!` + C.reset);
@@ -465,7 +544,6 @@ class GameSession {
         this.ln(`  ` + ma.text);
         p.hp -= ma.damage;
         if (p.hp <= 0) { p.hp = 0; p.fightsLeft--; return this._playerDeath(monster.name); }
-        this.ln(C.gray + `  Monster HP: ${Math.max(0, monster.hp)}  Your HP: ${p.hp}/${p.hpMax}` + C.reset);
         this._renderCombatMenu();
       }
       return;
@@ -484,17 +562,17 @@ class GameSession {
         this.ln(`  ` + ma.text);
         p.hp -= ma.damage;
         if (p.hp <= 0) { p.hp = 0; p.fightsLeft--; return this._playerDeath(monster.name); }
-        this.ln(C.gray + `  Monster HP: ${Math.max(0, monster.hp)}  Your HP: ${p.hp}/${p.hpMax}` + C.reset);
       }
       this._renderCombatMenu();
       return;
     }
 
-    if (ch !== 'a') { this.out(C.white + 'Choice: '); return; }
+    if (ch !== 'a') { this.out(menuPrompt()); return; }
 
     // One round — player attacks first
     this.ln();
     const pa = combat.playerAttack(p, monster);
+    if (pa.crit) this.out(fx.criticalHit());
     this.ln(`  ` + pa.text);
     monster.hp -= pa.damage;
 
@@ -504,6 +582,7 @@ class GameSession {
 
     // Monster strikes back
     const ma = combat.monsterAttack(p, monster);
+    if (ma.crit) this.out(fx.criticalHit());
     this.ln(`  ` + ma.text);
     p.hp -= ma.damage;
 
@@ -513,9 +592,36 @@ class GameSession {
       return this._playerDeath(monster.name);
     }
 
-    // Still fighting — show status and re-prompt
-    this.ln(C.gray + `  Monster HP: ${Math.max(0, monster.hp)}  Your HP: ${p.hp}/${p.hpMax}` + C.reset);
+    // Monster theft — 8% chance to steal gold, 5% chance to steal a gem
+    if (ma.damage > 0) {
+      if (p.gold > 0 && rnd(1, 100) <= 8) {
+        const stolen = Math.max(1, Math.floor(p.gold * rnd(5, 15) / 100));
+        p.gold = Math.max(0, p.gold - stolen);
+        this.ln(C.red + `  The ${monster.name} snatches ${commas(stolen)}g from your pouch!` + C.reset);
+      } else if (p.gem > 0 && rnd(1, 100) <= 5) {
+        p.gem--;
+        this.ln(C.red + `  The ${monster.name} swipes a gem and bolts!` + C.reset);
+      }
+    }
+
+    // Still fighting — re-prompt (status shown in renderCombatMenu header)
     this._renderCombatMenu();
+  }
+
+  // Build a compact combat HP bar — color-keyed to danger level.
+  _combatStatus(p, monster) {
+    const mhp    = Math.max(0, monster.hp);
+    const mhpPct = mhp / (monster.hpMax || monster.hp || 1);
+    const mCol   = mhpPct > 0.6 ? C.green : (mhpPct > 0.25 ? C.yellow : C.red);
+    const phpPct = p.hp / p.hpMax;
+    const pCol   = phpPct > 0.6 ? C.green : (phpPct > 0.25 ? C.yellow : C.red);
+    return (
+      C.dkgray + `  ` +
+      C.dkred  + `[` + C.white + monster.name + C.dkgray + ` HP: ` + mCol + `${mhp}` + C.dkgray + `/` + C.gray + `${monster.hpMax || mhp}` + C.dkred + `]` +
+      C.dkgray + `  vs  ` +
+      C.dkgreen + `[` + C.dkgray + `You HP: ` + pCol + `${p.hp}` + C.dkgray + `/` + C.gray + `${p.hpMax}` + C.dkgreen + `]` +
+      C.reset
+    );
   }
 
   _renderCombatMenu() {
@@ -527,23 +633,32 @@ class GameSession {
     const specialKey  = ['', 'W', 'M', 'T'][p.class];
     const specialName = CLASSES[p.class].skillName;
 
-    this.ln();
+    this.ln(DIV_DIM.trimEnd());
     if (monster) {
-      this.ln(C.gray + `  [ ${C.white}${monster.name}${C.gray} HP: ${C.red}${Math.max(0, monster.hp)}${C.gray} ]  [ Your HP: ${C.green}${p.hp}${C.gray}/${p.hpMax} ]` + C.reset);
+      this.ln(this._combatStatus(p, monster));
     }
-    this.ln(C.green + `  (A)ttack   (F)lee   (G)em heal (${p.gem} gems)`);
+    this.ln(
+      C.dkgreen + `  (` + C.green + `A` + C.dkgreen + `)ttack   ` +
+      C.dkgreen + `(` + C.green + `F` + C.dkgreen + `)lee   ` +
+      C.dkgreen + `(` + C.green + `G` + C.dkgreen + `)em heal ` +
+      C.dkgray  + `[` + C.white + `${p.gem}` + C.dkgray + ` gems]` + C.reset
+    );
     if (hasSpecial) {
-      this.ln(C.cyan + `  (${specialKey}) ${specialName}  [${['', p.levelw, p.levelm, p.levelt][p.class]} uses left]`);
+      this.ln(
+        C.dkblue + `  (` + C.cyan + `${specialKey}` + C.dkblue + `) ` + C.cyan + `${specialName}` +
+        C.dkgray + `  [` + C.white + `${['', p.levelw, p.levelm, p.levelt][p.class]}` + C.dkgray + ` uses left]` + C.reset
+      );
     }
     this.ln();
-    this.out(C.white + 'Choice: ' + C.reset);
+    this.out(menuPrompt());
   }
 
   _monsterDied(monster, alreadyLogged = false) {
     const p = this.player;
     if (!alreadyLogged) {
       if (monster.deathMsg) this.ln(C.dkgreen + `\r\n  ` + monster.deathMsg + C.reset);
-      this.ln(C.green  + `  You defeated the ${monster.name}!`);
+      this.out(fx.killingBlow(monster.name));
+      this.ln(C.green  + `  You defeated the ` + C.white + `${monster.name}` + C.green + `!` + C.reset);
       p.exp  += monster.exp;
       p.gold += monster.gold;
 
@@ -552,10 +667,10 @@ class GameSession {
         const stolen = Math.floor(monster.gold * (0.25 + Math.random() * 0.25));
         p.gold += stolen;
         this._context.backstabbed = false;
-        this.ln(C.yellow + `  +${commas(monster.gold)} gold  +${commas(monster.exp)} exp` + C.reset);
-        this.ln(C.dkgray + `  You rifle through the body and pocket ${commas(stolen)} extra gold!` + C.reset);
+        this.ln(C.yellow + `  +` + C.white + `${commas(monster.gold)}` + C.yellow + `g  +` + C.white + `${commas(monster.exp)}` + C.yellow + ` xp` + C.reset);
+        this.ln(C.dkgray + `  You rifle through the body and pocket ` + C.yellow + `${commas(stolen)}` + C.dkgray + ` extra gold!` + C.reset);
       } else {
-        this.ln(C.yellow + `  +${commas(monster.gold)} gold  +${commas(monster.exp)} exp` + C.reset);
+        this.ln(C.yellow + `  +` + C.white + `${commas(monster.gold)}` + C.yellow + `g  +` + C.white + `${commas(monster.exp)}` + C.yellow + ` xp` + C.reset);
       }
 
       if (!alreadyLogged) p.fightsLeft--;
@@ -563,7 +678,7 @@ class GameSession {
 
     // Kill taunt
     const taunt = events.getKillTaunt(monster.name, p.name);
-    if (taunt) this.ln(C.gray + `  ` + taunt + C.reset);
+    if (taunt) this.ln(C.dkgray + `  ` + taunt + C.reset);
 
     if (combat.canLevelUp(p)) {
       this.ln(C.yellow + `\r\n  *** You are ready to level up! Visit the Master! ***` + C.reset);
@@ -574,8 +689,11 @@ class GameSession {
 
   _postFight() {
     this.ln();
-    this.ln(C.gray + `  (R)eturn to town   (A)nother fight` + C.reset);
-    this.out(C.white + 'Choice: ' + C.reset);
+    this.ln(
+      C.dkgreen + `  (` + C.green  + `R` + C.dkgreen + `)eturn to town   ` +
+      C.dkgreen + `(` + C.green  + `A` + C.dkgreen + `)nother fight` + C.reset
+    );
+    this.out(menuPrompt());
     this.state = 'fight_choice';
   }
 
@@ -591,14 +709,21 @@ class GameSession {
     p.gold -= goldLost;
     p.gem   = 0;
     storage.savePlayer(p);
-    this.cls();
-    this.ln(C.red + `  ` + DIV_RED.trimEnd());
-    this.ln(C.red + `  *** YOU HAVE DIED ***` + C.reset);
-    this.ln(C.red + `  ` + DIV_RED.trimEnd());
+
+    const deathArt = loadArt('death.ans');
+    if (deathArt) {
+      this.out(deathArt);
+    } else {
+      this.cls();
+      this.ln(DIV_RED.trimEnd());
+      this.ln(C.red + C.bold + `  ☠  YOU HAVE DIED  ☠` + C.reset);
+      this.ln(DIV_RED.trimEnd());
+    }
+
     this.ln();
-    this.ln(C.dkred + `  You were slain by ${killerName}.` + C.reset);
-    this.ln(C.gray  + `  Lost ${commas(goldLost)} gold and all gems.` + C.reset);
-    this.ln(C.gray  + `  Visit the Healer to be resurrected.` + C.reset);
+    this.ln(C.dkred + `  You were slain by ` + C.white + `${killerName}` + C.dkred + `.` + C.reset);
+    this.ln(C.gray  + `  Lost ` + C.yellow + `${commas(goldLost)}` + C.gray + ` gold and all gems.` + C.reset);
+    this.ln(C.dkgray + `  Visit the Healer to be resurrected.` + C.reset);
     this._anyKey(() => this._renderMain());
   }
 
@@ -613,11 +738,13 @@ class GameSession {
       this.out(art);
     } else {
       this.cls();
-      this.ln(C.white + titleBar(`Healer's Hut`) + C.reset);
+      this.ln(titleBar(`Healer's Hut`, 79, 'green'));
       this.ln();
       this.ln(C.green + `  A kindly healer greets you.` + C.reset);
     }
-    this.ln(C.gray  + `  HP: ${C.green}${p.hp}/${p.hpMax}${C.gray}   Gold: ${C.yellow}${commas(p.gold)}` + C.reset);
+    const hhpColor = p.hp < p.hpMax * 0.3 ? C.red : (p.hp < p.hpMax * 0.6 ? C.yellow : C.green);
+    this.ln(C.dkgray + `  HP: ` + hhpColor + `${p.hp}` + C.dkgray + `/` + C.gray + `${p.hpMax}` +
+            C.dkgray + `   Gold: ` + C.yellow + `${commas(p.gold)}` + C.reset);
     this.ln();
 
     if (p.dead) {
@@ -626,7 +753,7 @@ class GameSession {
       this.ln(C.red + `  "You are dead, adventurer!"` + C.reset);
       this.ln();
       if (p.gold >= fullCost) {
-        this.ln(C.gray  + `  Full resurrection: ${C.yellow}${commas(fullCost)}g${C.gray} → restored to ${Math.floor(p.hpMax / 2)} HP` + C.reset);
+        this.ln(C.dkgray + `  Full resurrection: ` + C.yellow + `${commas(fullCost)}g` + C.dkgray + ` → restored to ` + C.green + `${Math.floor(p.hpMax / 2)} HP` + C.reset);
       } else if (p.gold > 0) {
         this.ln(C.gray  + `  Full resurrection: ${C.yellow}${commas(fullCost)}g${C.gray} (you have ${C.yellow}${commas(p.gold)}g${C.gray})` + C.reset);
         this.ln(C.dkgray + `  The healer will do what they can for ${commas(p.gold)}g → 1 HP` + C.reset);
@@ -635,8 +762,8 @@ class GameSession {
         this.ln(C.dkgray + `  The healer takes pity on the destitute...` + C.reset);
       }
       this.ln();
-      this.ln(C.green + `  (R)esurrect   (L)eave` + C.reset);
-      this.out(C.white + 'Choice: ');
+      this.ln(C.dkgreen + `  (` + C.green + `R` + C.dkgreen + `)esurrect   (` + C.green + `L` + C.dkgreen + `)eave` + C.reset);
+      this.out(menuPrompt());
       this.state = 'healer_menu';
       return;
     }
@@ -644,10 +771,10 @@ class GameSession {
     const hpNeeded = p.hpMax - p.hp;
     const healCost = hpNeeded * getSetting('healerRate');
     this._context.healCost = healCost;
-    this.ln(C.green + `  (H)eal to full  (${commas(healCost)}g — ${hpNeeded} HP needed)`);
-    this.ln(C.green + `  (L)eave` + C.reset);
+    this.ln(C.dkgreen + `  (` + C.green + `H` + C.dkgreen + `)eal to full  ` + C.dkgray + `(` + C.yellow + `${commas(healCost)}g` + C.dkgray + ` — ` + C.white + `${hpNeeded} HP` + C.dkgray + ` needed)`);
+    this.ln(C.dkgreen + `  (` + C.green + `L` + C.dkgreen + `)eave` + C.reset);
     this.ln();
-    this.out(C.white + 'Choice: ');
+    this.out(menuPrompt());
     this.state = 'healer_menu';
   }
 
@@ -698,7 +825,7 @@ class GameSession {
       this._anyKey(() => this._renderMain());
       return;
     }
-    this.out(C.white + 'Choice: ');
+    this.out(menuPrompt());
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -708,15 +835,17 @@ class GameSession {
   _enterInn() {
     const p = this.player;
     this.cls();
-    this.ln(C.white + titleBar('The Inn') + C.reset);
+    this.ln(titleBar('The Inn', 79, 'yellow'));
     this.ln();
     this.ln(C.brown + `  A warm fire crackles. The innkeeper nods.` + C.reset);
-    this.ln(C.gray  + `  HP: ${p.hp}/${p.hpMax}   Gold: ${commas(p.gold)}` + C.reset);
+    this.ln(C.dkgray + `  HP: ` + C.green + `${p.hp}` + C.dkgray + `/` + C.gray + `${p.hpMax}` +
+            C.dkgray + `   Gold: ` + C.yellow + `${commas(p.gold)}` + C.reset);
     this.ln();
-    this.ln(C.green + `  (S)leep (${getSetting('innCost')}g — wake fully healed next visit)`);
-    this.ln(C.green + `  (L)eave` + C.reset);
+    this.ln(C.dkgreen + `  (` + C.green + `S` + C.dkgreen + `)leep ` +
+            C.dkgray  + `(` + C.yellow + `${getSetting('innCost')}g` + C.dkgray + ` — wake fully healed next visit)`);
+    this.ln(C.dkgreen + `  (` + C.green + `L` + C.dkgreen + `)eave` + C.reset);
     this.ln();
-    this.out(C.white + 'Choice: ');
+    this.out(menuPrompt());
     this.state = 'inn_menu';
   }
 
@@ -747,18 +876,23 @@ class GameSession {
     const p = this.player;
     const WEAPONS = getWeapons();
     const art = getLordScreen('ARTHUR');
-    if (art) { this.out(art); } else { this.cls(); this.ln(C.white + titleBar('Weapons Shop') + C.reset); }
-    this.ln(C.gray  + `  Current: ${C.white}${p.weapon}${C.gray}  Gold: ${C.yellow}${commas(p.gold)}` + C.reset);
+    if (art) { this.out(art); } else { this.cls(); this.ln(titleBar('Weapons Shop', 79, 'red')); }
+    this.ln(C.dkgray + `  Current: ` + C.white + `${p.weapon}` + C.dkgray + `   Gold: ` + C.yellow + `${commas(p.gold)}g` + C.reset);
     this.ln();
     WEAPONS.forEach((w, i) => {
       if (!w) return;
-      const owned     = p.weaponNum === i ? C.yellow + ` ◄ yours` : '';
-      const canAfford = p.gold >= w.price ? C.green : C.gray;
-      this.ln(`  ${canAfford}(${i}) ${w.name.slice(0,18).padEnd(18)} +${String(w.strength).padEnd(5)} STR  ${commas(w.price)}g${owned}${C.reset}`);
+      const ownedStr  = p.weaponNum === i ? C.yellow + ` ◄ yours` : '';
+      const canAfford = p.gold >= w.price ? C.green : C.dkgray;
+      this.ln(
+        `  ` + C.dkgray + `(` + canAfford + `${i}` + C.dkgray + `) ` +
+        canAfford + `${w.name.slice(0,18).padEnd(18)} ` +
+        C.dkgray + `+` + C.white + `${String(w.strength).padEnd(5)}` + C.dkgray + `STR  ` +
+        C.yellow + `${commas(w.price)}g` + ownedStr + C.reset
+      );
     });
     this.ln();
-    this.ln(C.gray + `  Number to buy, or (R)eturn:` + C.reset);
-    this.out(C.white + '> ' + C.reset);
+    this.ln(C.dkgray + `  Number to buy, or ` + C.dkgreen + `(` + C.green + `R` + C.dkgreen + `)eturn` + C.reset);
+    this.out(menuPrompt());
     this.state = 'shop_weapon';
   }
 
@@ -795,18 +929,23 @@ class GameSession {
     const p = this.player;
     const ARMOUR = getArmour();
     const art = getLordScreen('ABDUL');
-    if (art) { this.out(art); } else { this.cls(); this.ln(C.white + titleBar(`Abdul's Armour Shop`) + C.reset); }
-    this.ln(C.gray  + `  Current: ${C.white}${p.arm}${C.gray}  Gold: ${C.yellow}${commas(p.gold)}` + C.reset);
+    if (art) { this.out(art); } else { this.cls(); this.ln(titleBar(`Abdul's Armour Shop`, 79, 'blue')); }
+    this.ln(C.dkgray + `  Current: ` + C.white + `${p.arm}` + C.dkgray + `   Gold: ` + C.yellow + `${commas(p.gold)}g` + C.reset);
     this.ln();
     ARMOUR.forEach((a, i) => {
       if (!a) return;
-      const owned     = p.armNum === i ? C.yellow + ` ◄ yours` : '';
-      const canAfford = i === 0 || p.gold >= a.price ? C.green : C.gray;
-      this.ln(`  ${canAfford}(${i}) ${a.name.slice(0,18).padEnd(18)} +${String(a.defense).padEnd(5)} DEF  ${i === 0 ? 'free' : commas(a.price) + 'g'}${owned}${C.reset}`);
+      const ownedStr  = p.armNum === i ? C.yellow + ` ◄ yours` : '';
+      const canAfford = i === 0 || p.gold >= a.price ? C.cyan : C.dkgray;
+      this.ln(
+        `  ` + C.dkgray + `(` + canAfford + `${i}` + C.dkgray + `) ` +
+        canAfford + `${a.name.slice(0,18).padEnd(18)} ` +
+        C.dkgray + `+` + C.white + `${String(a.defense).padEnd(5)}` + C.dkgray + `DEF  ` +
+        C.yellow + (i === 0 ? `free` : `${commas(a.price)}g`) + ownedStr + C.reset
+      );
     });
     this.ln();
-    this.ln(C.gray + `  Number to buy, or (R)eturn:` + C.reset);
-    this.out(C.white + '> ' + C.reset);
+    this.ln(C.dkgray + `  Number to buy, or ` + C.dkgreen + `(` + C.green + `R` + C.dkgreen + `)eturn` + C.reset);
+    this.out(menuPrompt());
     this.state = 'shop_armor';
   }
 
@@ -846,13 +985,15 @@ class GameSession {
       this.out(art);
     } else {
       this.cls();
-      this.ln(C.white + titleBar('Town Bank') + C.reset);
+      this.ln(titleBar('Town Bank', 79, 'yellow'));
     }
-    this.ln(C.gray + `  Gold in hand: ${C.yellow}${commas(p.gold)}` + C.reset);
-    this.ln(C.gray + `  Gold in bank: ${C.yellow}${commas(p.bank)}` + C.reset);
+    this.ln(C.dkgray + `  Gold in hand: ` + C.yellow + `${commas(p.gold)}g` + C.reset);
+    this.ln(C.dkgray + `  Gold in bank: ` + C.yellow + `${commas(p.bank)}g` + C.reset);
     this.ln();
-    this.ln(C.green + `  (D)eposit   (W)ithdraw   (R)eturn` + C.reset);
-    this.out(C.white + 'Choice: ');
+    this.ln(C.dkgreen + `  (` + C.green + `D` + C.dkgreen + `)eposit   ` +
+            C.dkgreen + `(` + C.green + `W` + C.dkgreen + `)ithdraw   ` +
+            C.dkgreen + `(` + C.green + `R` + C.dkgreen + `)eturn` + C.reset);
+    this.out(menuPrompt());
     this.state = 'bank_menu';
   }
 
@@ -862,20 +1003,20 @@ class GameSession {
     if (ch === 'd') {
       if (p.gold <= 0) { this.ln(C.red + `\r\n  No gold to deposit.` + C.reset); this._anyKey(() => this._afterBank()); return; }
       this._context.bankMode = 'deposit';
-      this.ln(C.yellow + `\r\n  Deposit how much? (max ${commas(p.gold)}):` + C.reset);
-      this.out(C.white + '> ');
+      this.ln(C.yellow + `\r\n  Deposit how much?` + C.dkgray + ` (max ` + C.yellow + `${commas(p.gold)}g` + C.dkgray + `)` + C.reset);
+      this.out(menuPrompt());
       this.state = 'bank_amount';
       return;
     }
     if (ch === 'w') {
       if (p.bank <= 0) { this.ln(C.red + `\r\n  Nothing in your account.` + C.reset); this._anyKey(() => this._afterBank()); return; }
       this._context.bankMode = 'withdraw';
-      this.ln(C.yellow + `\r\n  Withdraw how much? (max ${commas(p.bank)}):` + C.reset);
-      this.out(C.white + '> ');
+      this.ln(C.yellow + `\r\n  Withdraw how much?` + C.dkgray + ` (max ` + C.yellow + `${commas(p.bank)}g` + C.dkgray + `)` + C.reset);
+      this.out(menuPrompt());
       this.state = 'bank_amount';
       return;
     }
-    this.out(C.white + 'Choice: ');
+    this.out(menuPrompt());
   }
 
   _state_bank_amount(input) {
@@ -959,7 +1100,7 @@ class GameSession {
 
     // Show trainer dialogue
     const dialogue = trainers.getTrainerDialogue(p.level, p.sex);
-    if (dialogue) this.ln(colorize(dialogue));
+    if (dialogue) this.ln(dialogue);
     this.ln();
     this.ln(C.green + `  (A)dvance to Level ${p.level + 1}   (L)eave` + C.reset);
     this.out(C.white + 'Choice: ');
@@ -994,36 +1135,47 @@ class GameSession {
     const p       = this.player;
     const players = storage.getLivePlayers().filter(pl => pl.id !== p.id);
     this.cls();
-    this.ln(C.white + titleBar('Other Adventurers') + C.reset);
+    this.ln(titleBar('Other Adventurers', 79, 'cyan'));
     this.ln();
     if (players.length === 0) {
-      this.ln(C.gray + `  No other adventurers in the realm yet.` + C.reset);
+      this.ln(C.dkgray + `  No other adventurers in the realm yet.` + C.reset);
       this._anyKey(() => this._renderMain());
       this.state = 'players_list';
       return;
     }
-    this.ln(C.gray + `  ${'#'.padEnd(3)} ${'Name'.padEnd(18)} ${'Lv'.padEnd(4)} ${'Class'.padEnd(13)} ${'HP'.padEnd(8)} Description` + C.reset);
+    this.ln(
+      C.dkgray + `  ` +
+      `#`.padEnd(3) + ` ` +
+      `Name`.padEnd(18) + ` ` +
+      `Lv`.padEnd(4) +
+      `Class`.padEnd(13) +
+      `HP`.padEnd(9) +
+      `Description` + C.reset
+    );
     this.ln(C.dkblue + `  ` + `─`.repeat(74) + C.reset);
     players.forEach((pl, i) => {
-      const cls  = CLASSES[pl.class]?.name || '?';
-      const desc = appearance.getAppearance(pl);
-      const markerStr = pl.married >= 0 ? C.yellow + ` ♥` : '';
+      const cls    = CLASSES[pl.class]?.name || '?';
+      const desc   = appearance.getAppearance(pl);
+      const hpPct  = pl.hp / pl.hpMax;
+      const hpCol  = hpPct < 0.3 ? C.red : (hpPct < 0.6 ? C.yellow : C.green);
+      const markerStr = pl.married >= 0 ? C.magenta + `  ♥` : '';
       this.ln(
-        C.gray  + `  ${String(i + 1).padEnd(3)} ` +
-        C.white + pl.name.slice(0,18).padEnd(18) +
-        C.gray  + String(pl.level).padEnd(4) + cls.padEnd(13) +
-        (pl.hp < pl.hpMax * 0.3 ? C.red : C.green) + `${pl.hp}/${pl.hpMax}`.padEnd(8) +
-        C.gray  + desc + markerStr + C.reset
+        C.dkgray + `  ` + String(i + 1).padEnd(3) + ` ` +
+        C.white  + pl.name.slice(0,18).padEnd(18) + ` ` +
+        C.gray   + String(pl.level).padEnd(4) +
+        C.dkgray + cls.padEnd(13) +
+        hpCol    + `${pl.hp}/${pl.hpMax}`.padEnd(9) +
+        C.dkgray + desc + markerStr + C.reset
       );
     });
     this.ln();
     if (p.married < 0) {
-      this.ln(C.green + `  Enter a number to propose marriage, or any other key to return.` + C.reset);
+      this.ln(C.dkgray + `  Enter a number to ` + C.magenta + `propose marriage` + C.dkgray + `, or any other key to return.` + C.reset);
     } else {
-      this.ln(C.gray + `  You are already married. Press any key.` + C.reset);
+      this.ln(C.dkgray + `  You are already married. Press any key.` + C.reset);
     }
     this._context.viewPlayers = players;
-    this.out(C.white + '> ');
+    this.out(menuPrompt());
     this.state = 'players_list';
   }
 
@@ -1067,26 +1219,34 @@ class GameSession {
   _enterPvP() {
     const p = this.player;
     this.cls();
-    this.ln(C.white + titleBar('Player Battle') + C.reset);
+    this.ln(titleBar('Player Battle', 79, 'red'));
     this.ln();
 
     if (p.dead) { this.ln(C.red + `  You are dead!` + C.reset); this._anyKey(() => this._renderMain()); return; }
     if (p.humanLeft <= 0) { this.ln(C.red + `  No PvP fights remaining today.` + C.reset); this._anyKey(() => this._renderMain()); return; }
 
     const targets = storage.getLivePlayers().filter(pl => pl.id !== p.id);
-    if (targets.length === 0) { this.ln(C.gray + `  No other players to battle.` + C.reset); this._anyKey(() => this._renderMain()); return; }
+    if (targets.length === 0) { this.ln(C.dkgray + `  No other players to battle.` + C.reset); this._anyKey(() => this._renderMain()); return; }
 
-    this.ln(C.gray + `  PvP fights remaining: ${C.white}${p.humanLeft}` + C.reset);
+    this.ln(C.dkgray + `  PvP fights remaining: ` + C.white + `${p.humanLeft}` + C.reset);
     this.ln();
     targets.forEach((pl, i) => {
-      const cls  = CLASSES[pl.class]?.name || '?';
-      const desc = appearance.getAppearance(pl);
-      this.ln(C.gray + `  (${i + 1}) ${C.white}${pl.name.slice(0,18).padEnd(18)}${C.gray} Lv${pl.level} ${cls}  HP:${pl.hp}/${pl.hpMax}  ${desc}` + C.reset);
+      const cls   = CLASSES[pl.class]?.name || '?';
+      const desc  = appearance.getAppearance(pl);
+      const hpPct = pl.hp / pl.hpMax;
+      const hpCol = hpPct < 0.3 ? C.red : (hpPct < 0.6 ? C.yellow : C.green);
+      this.ln(
+        C.dkgray + `  (` + C.white + `${i + 1}` + C.dkgray + `) ` +
+        C.white  + `${pl.name.slice(0,18).padEnd(18)}` +
+        C.dkgray + ` Lv` + C.white + `${pl.level}` +
+        C.dkgray + ` ${cls}  HP:` + hpCol + `${pl.hp}/${pl.hpMax}` +
+        C.dkgray + `  ${desc}` + C.reset
+      );
     });
     this.ln();
-    this.ln(C.gray + `  Enter number to attack, or (R)eturn:` + C.reset);
+    this.ln(C.dkgray + `  Enter number to attack, or ` + C.dkgreen + `(` + C.green + `R` + C.dkgreen + `)eturn` + C.reset);
     this._context.pvpTargets = targets;
-    this.out(C.white + '> ');
+    this.out(menuPrompt());
     this.state = 'pvp_list_page';
   }
 
@@ -1094,10 +1254,10 @@ class GameSession {
     if (ch === 'r') return this._renderMain();
     const n = parseInt(ch);
     const targets = this._context.pvpTargets || [];
-    if (isNaN(n) || n < 1 || n > targets.length) { this.out(C.white + '> '); return; }
+    if (isNaN(n) || n < 1 || n > targets.length) { this.out(menuPrompt()); return; }
     this._context.pvpTarget = targets[n - 1];
-    this.ln(C.red + `\r\n  Attack ${this._context.pvpTarget.name}? (Y/N)` + C.reset);
-    this.out(C.white + '> ');
+    this.ln(C.dkred + `\r\n  Attack ` + C.white + `${this._context.pvpTarget.name}` + C.dkred + `?` + C.dkgray + ` (Y/N)` + C.reset);
+    this.out(menuPrompt());
     this.state = 'pvp_confirm';
   }
 
@@ -1155,6 +1315,7 @@ class GameSession {
     this.ln(C.green + `  (J)oin the Blackjack Table`);
     this.ln(C.green + `  (B)ard's Song`);
     this.ln(C.green + `  (T)alk to the Bartender`);
+    this.ln(C.green + `  (N)otice Board`);
     this.ln(C.green + `  (Y)our Stats`);
     this.ln(C.green + `  (R)eturn` + C.reset);
     this.ln();
@@ -1166,6 +1327,7 @@ class GameSession {
     const p = this.player;
     switch (ch) {
       case 'r': return this._renderMain();
+      case 'n': return this._enterNoticeBoard();
       case 'y': return this._showStats();
       case 'b': {
         this.ln();
@@ -1178,8 +1340,12 @@ class GameSession {
       case 'd': {
         const gs = storage.getGameState();
         this.ln();
+        const daysHeld = gs.championName ? Math.max(0, gs.currentDay - (gs.championDays || gs.currentDay)) : 0;
+        const champStr = gs.championName
+          ? `${C.white}${gs.championName}${C.gray}  (${daysHeld} day${daysHeld !== 1 ? 's' : ''} reigning)`
+          : `${C.dkgray}none yet`;
         this.ln(C.yellow + `  *** Daily News ***` + C.reset);
-        this.ln(C.gray   + `  Day: ${gs.currentDay}   Champion: ${C.white}${gs.championName}` + C.reset);
+        this.ln(C.gray   + `  Day: ${gs.currentDay}   Champion: ` + champStr + C.reset);
         this.ln(C.gray   + `  Players in the realm: ${C.white}${storage.getAll().length}` + C.reset);
         this._anyKey(() => this._enterTavern());
         return;
@@ -1226,6 +1392,43 @@ class GameSession {
       case 't': return this._enterBartender();
       default:  this.out(C.white + 'Choice: ');
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // NOTICE BOARD
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _enterNoticeBoard() {
+    this.cls();
+    this.ln(C.yellow + titleBar('Notice Board', 79, 'yellow') + C.reset);
+    this.ln();
+    const posts = storage.getBulletinBoard();
+    if (posts.length === 0) {
+      this.ln(C.dkgray + `  The board is bare. Be the first to post!` + C.reset);
+    } else {
+      const recent = posts.slice(-15).reverse();
+      recent.forEach(post => {
+        this.ln(
+          C.dkgray + `  [Day ${post.day}] ` +
+          C.yellow  + `${post.author}` +
+          C.dkgray  + `: ` +
+          C.white   + `${post.text}` + C.reset
+        );
+      });
+    }
+    this.ln();
+    this.ln(C.green + `  Post a message (or press Enter to leave):` + C.reset);
+    this.out(C.white + '> ');
+    this.state = 'bulletin_post';
+  }
+
+  _state_bulletin_post(text) {
+    if (text.trim().length > 0) {
+      storage.postBulletin(this.player.name, text.trim());
+      this.ln(C.green + `  Message posted!` + C.reset);
+    }
+    this._anyKey(() => this._enterTavern());
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1293,7 +1496,9 @@ class GameSession {
     this.ln();
 
     const charm = p.charm || 0;
-    const roll  = rnd(1, 100);
+    const tod = getTimeOfDay();
+    const todBonus = tod === 'evening' ? 15 : (tod === 'night' ? 10 : 0);
+    const roll  = rnd(1, 100) - todBonus;
 
     if (charm < 10 || roll <= 15) {
       // Rejection / slap
@@ -1318,6 +1523,10 @@ class GameSession {
       this.ln(C.green   + `  Your charm increases!` + C.reset);
       p.charm = Math.min(100, charm + 1);
       p.lays  = (p.lays || 0) + 1;
+      if (p.married >= 0 && rnd(1, 100) <= 20) {
+        p.kids = (p.kids || 0) + 1;
+        this.ln(C.magenta + `  Some time later, you welcome a child into the world!` + C.reset);
+      }
     }
 
     p.seenViolet = true;
@@ -1346,7 +1555,9 @@ class GameSession {
     this.ln();
 
     const charm = p.charm || 0;
-    const roll  = rnd(1, 100);
+    const tod = getTimeOfDay();
+    const todBonus = tod === 'evening' ? 15 : (tod === 'night' ? 10 : 0);
+    const roll  = rnd(1, 100) - todBonus;
 
     if (charm < 10 || roll <= 15) {
       this.ln(C.red + `  Seth glances up and then away, unimpressed.` + C.reset);
@@ -1364,6 +1575,10 @@ class GameSession {
       this.ln(C.green + `  Your charm increases!` + C.reset);
       p.charm = Math.min(100, charm + 1);
       p.lays  = (p.lays || 0) + 1;
+      if (p.married >= 0 && rnd(1, 100) <= 20) {
+        p.kids = (p.kids || 0) + 1;
+        this.ln(C.magenta + `  Some time later, you welcome a child into the world!` + C.reset);
+      }
     }
 
     p.seenViolet = true;  // shared daily flag
@@ -1564,24 +1779,13 @@ class GameSession {
     this.ln();
     this.ln(C.gray + `  (P)lay again   (L)eave` + C.reset);
     this.out(C.white + 'Choice: ');
-    this.state = 'blackjack_menu';
-    this._context.bjEnded = true;
+    this.state = 'blackjack_end';
   }
 
-  // Override blackjack_menu to handle post-game input
-  _state_blackjack_menu_orig = this._state_blackjack_menu;
-
-  // ── patch: after end, P=play again, L=leave
-  _patchBlackjack() {
-    const orig = this._state_blackjack_menu.bind(this);
-    this._state_blackjack_menu = (ch) => {
-      if (this._context.bjEnded) {
-        this._context.bjEnded = false;
-        if (ch === 'p') return this._enterBlackjack();
-        return this._enterTavern();
-      }
-      orig(ch);
-    };
+  _state_blackjack_end(ch) {
+    if (ch === 'p') return this._enterBlackjack();
+    if (ch === 'l') return this._enterTavern();
+    this.out(C.white + 'Choice: ');
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -1591,36 +1795,60 @@ class GameSession {
   _showStats() {
     const p = this.player;
     this.cls();
-    this.ln(C.white + titleBar(`${p.name} — Character Stats`) + C.reset);
+    this.ln(titleBar(`${p.name} — Character`, 79, 'red'));
     this.ln();
-    this.ln(C.gray + `  ${appearance.describePlayer(p)}` + C.reset);
+    this.ln(C.dkgray + `  ` + appearance.describePlayer(p) + C.reset);
     this.ln();
-    this.ln(C.gray + `  Class:     ${C.white}${CLASSES[p.class]?.name}${C.gray}  (${p.sex === 5 ? 'Female' : 'Male'})`);
-    this.ln(C.gray + `  Level:     ${C.white}${p.level}${C.gray}  EXP: ${C.white}${commas(p.exp)}`);
-    this.ln(C.gray + `  HP:        ${C.green}${p.hp}${C.gray}/${p.hpMax}`);
-    this.ln(C.gray + `  Strength:  ${C.white}${p.strength}${C.gray}  (${p.weapon})`);
-    this.ln(C.gray + `  Defense:   ${C.white}${p.def}${C.gray}  (${p.arm})`);
-    this.ln(C.gray + `  Charm:     ${C.white}${p.charm}`);
-    this.ln(C.gray + `  Gold:      ${C.yellow}${commas(p.gold)}${C.gray}  Bank: ${C.yellow}${commas(p.bank)}`);
-    this.ln(C.gray + `  Gems:      ${C.white}${p.gem}` +
-      (p.hasAmulet ? C.cyan + `   [Amulet of Accuracy]` : '') + C.reset);
-    this.ln(C.gray + `  Kills:     ${C.white}${p.kills}${C.gray}  Dragon kills: ${C.white}${p.king}  Lays: ${C.white}${p.lays || 0}`);
-    this.ln(C.gray + `  Horse:     ${C.white}${p.extra ? 'Yes (+10 fights/day)' : 'No'}`);
-    if (p.married >= 0) {
-      const spouse = storage.findById(p.marriedTo);
-      this.ln(C.magenta + `  Married:   ${C.white}${spouse ? spouse.name : 'Someone'}${C.magenta}  Kids: ${C.white}${p.kids || 0}` + C.reset);
-    }
+
+    // ── Identity ─────────────────────────────────────────────────────────────
+    this.ln(C.dkred + `  ─── Identity ` + `─`.repeat(64) + C.reset);
+    this.ln(statRow('Class',   `${CLASSES[p.class]?.name}  (${p.sex === 5 ? 'Female' : 'Male'})`));
+    this.ln(statRow('Level',   `${p.level}`));
+    this.ln(statRow('EXP',     commas(p.exp)));
     const nextLvl = p.level;
     if (nextLvl < LEVEL_EXP.length) {
-      const needed = LEVEL_EXP[nextLvl] - p.exp;
-      this.ln(C.gray + `  To level:  ${C.white}${commas(Math.max(0, needed))}${C.gray} exp needed`);
+      const needed = Math.max(0, LEVEL_EXP[nextLvl] - p.exp);
+      this.ln(statRow('To Level', `${commas(needed)} exp needed`, C.dkgray, C.gray));
     } else {
-      this.ln(C.gray + `  Level:     ${C.yellow}MAX`);
+      this.ln(statRow('To Level', 'MAX', C.dkgray, C.yellow));
     }
     this.ln();
-    this.ln(C.gray + `  Forest fights: ${C.white}${p.fightsLeft}  ${C.gray}PvP: ${C.white}${p.humanLeft}`);
-    this.ln(C.gray + `  Skills — DK:${p.skillw} (${p.levelw} uses)  Mage:${p.skillm} (${p.levelm} uses)  Thief:${p.skillt} (${p.levelt} uses)` + C.reset);
+
+    // ── Combat ───────────────────────────────────────────────────────────────
+    this.ln(C.dkred + `  ─── Combat ` + `─`.repeat(65) + C.reset);
+    const hpColor = p.hp < p.hpMax * 0.3 ? C.red : (p.hp < p.hpMax * 0.6 ? C.yellow : C.green);
+    this.ln(C.gray + `  ${'HP'.padEnd(12)}` + hpColor + `${p.hp}` + C.dkgray + `/` + C.gray + `${p.hpMax}` + C.reset);
+    this.ln(statRow('Strength', `${p.strength}  (${p.weapon})`));
+    this.ln(statRow('Defense',  `${p.def}  (${p.arm})`));
+    this.ln(statRow('Charm',    `${p.charm}`));
+    this.ln(statRow('Fights',   `${p.fightsLeft} forest  /  ${p.humanLeft} PvP remaining today`));
     this.ln();
+
+    // ── Wealth ───────────────────────────────────────────────────────────────
+    this.ln(C.dkred + `  ─── Wealth ` + `─`.repeat(65) + C.reset);
+    this.ln(C.gray + `  ${'Gold'.padEnd(12)}` + C.yellow + `${commas(p.gold)}g` + C.dkgray + `  bank: ` + C.yellow + `${commas(p.bank)}g` + C.reset);
+    const artifacts = [
+      p.hasAmulet  ? C.cyan    + '[Amulet of Accuracy]'       : '',
+      p.hasRing    ? C.yellow  + '[Ring of Vitality]'         : '',
+      p.hasScroll  ? C.white   + '[Scroll of Fortification]'  : '',
+    ].filter(Boolean).join(C.dkgray + '  ');
+    const gemLine = `${p.gem} gems` + (artifacts ? `  ` + artifacts : '');
+    this.ln(statRow('Gems',  gemLine));
+    this.ln(statRow('Horse', p.extra ? 'Yes  (+10 forest fights/day)' : 'No'));
+    this.ln();
+
+    // ── Feats ────────────────────────────────────────────────────────────────
+    this.ln(C.dkred + `  ─── Feats ` + `─`.repeat(66) + C.reset);
+    this.ln(statRow('Kills',    `${p.kills} foes  /  ${p.king} dragon kill${p.king !== 1 ? 's' : ''}`));
+    this.ln(statRow('Lays',     `${p.lays || 0}`));
+    const skillLine = `DK ${p.skillw} (${p.levelw} uses)   Mage ${p.skillm} (${p.levelm} uses)   Thief ${p.skillt} (${p.levelt} uses)`;
+    this.ln(statRow('Skills',   skillLine, C.dkgray, C.dkgray));
+    if (p.married >= 0) {
+      const spouse = storage.findById(p.marriedTo);
+      this.ln(C.magenta + `  ${'Married'.padEnd(12)}` + C.white + `${spouse ? spouse.name : 'Someone'}` + C.magenta + `  Kids: ` + C.white + `${p.kids || 0}` + C.reset);
+    }
+    this.ln();
+
     this._anyKey(() => this._renderMain());
     this.state = 'any_key';
   }
@@ -1634,7 +1862,7 @@ class GameSession {
     const gs = storage.getGameState();
     const dr = storage.getDragonState();
 
-    const lairArt = loadArt('lairans.ans');
+    const lairArt = loadArt('dragonlair.ans') || loadArt('lairans.ans');
     if (lairArt) {
       this.out(lairArt);
       this._anyKey(() => this._renderDragonLair());
@@ -1729,6 +1957,7 @@ class GameSession {
     // Dragon counter-attacks — scales with how wounded the dragon is (enrages)
     const dragonRage  = Math.ceil((1 - updatedDr.hp / updatedDr.maxHp) * 300);
     const dDmg = Math.max(1, rnd(200 + dragonRage, 500 + dragonRage) - p.def);
+    this.out(fx.dragonRoar());
     this.ln(C.red + `  The Red Dragon breathes fire at you for ${C.white}${dDmg}${C.red} damage!` + C.reset);
     p.hp -= dDmg;
     if (p.hp <= 0) {
@@ -1748,7 +1977,7 @@ class GameSession {
 
     // Rewards
     const expGained  = 300000 + p.level * 50000;
-    const goldGained = 100000 + p.level * 10000;
+    const goldGained = 1000000 + p.level * 150000;
     p.exp  += expGained;
     p.gold += goldGained;
     p.king  = (p.king || 0) + 1;
@@ -1962,21 +2191,4 @@ class GameSession {
   }
 }
 
-// Fix blackjack post-game state on construction
-const _origConstructor = GameSession;
-class GameSessionPatched extends GameSession {
-  constructor(send) {
-    super(send);
-    const orig = this._state_blackjack_menu.bind(this);
-    this._state_blackjack_menu = (ch) => {
-      if (this._context.bjEnded) {
-        this._context.bjEnded = false;
-        if (ch === 'p') return this._enterBlackjack();
-        return this._enterTavern();
-      }
-      orig(ch);
-    };
-  }
-}
-
-module.exports = { GameSession: GameSessionPatched };
+module.exports = { GameSession };

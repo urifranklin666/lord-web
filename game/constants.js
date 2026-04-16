@@ -100,9 +100,9 @@ const VIOLET_CHARM_BONUS = 1;
 
 // ── Seth's master (level-up trainer) ─────────────────────────────────────────
 const MASTER_STAT_GAIN = {
-  1: { strength: 10, hp: 30 }, // DK: high HP growth to stay relevant vs heavy hitters
-  2: { strength:  6, hp: 22 }, // Mage: moderate — compensates with gem heals and Magic Blast
-  3: { strength:  8, hp: 26 }, // Thief: moderate — flee bonus and Backstab make up the difference
+  1: { strength:  8, hp: 25 }, // DK: trimmed slightly — still strongest raw stats
+  2: { strength:  8, hp: 22 }, // Mage: matched DK STR gain — Magic Blast and gems compensate lower HP
+  3: { strength:  9, hp: 26 }, // Thief: slight STR edge over Mage — Backstab and flee bonus add value
 };
 
 module.exports = {

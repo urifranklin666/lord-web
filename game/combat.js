@@ -12,8 +12,9 @@ const { CLASSES } = require('./constants');
  */
 function calcHit(atkStr, defDef) {
   const roll = rnd(Math.floor(atkStr * 0.5), atkStr);
-  const damage = Math.max(1, roll - defDef);
+  const base = Math.max(1, roll - defDef);
   const crit = roll >= atkStr * 0.9;
+  const damage = crit ? Math.floor(base * 1.5) : base;
   return { damage, hit: roll, crit };
 }
 

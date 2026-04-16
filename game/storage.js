@@ -321,6 +321,23 @@ function resetPlayerDay(player) {
   return true;
 }
 
+// ── Bulletin board ────────────────────────────────────────────────────────────
+const BULLETIN_MAX = 30;
+
+function getBulletinBoard() {
+  const gs = loadGameState();
+  if (!gs.bulletin) gs.bulletin = [];
+  return gs.bulletin;
+}
+
+function postBulletin(playerName, text) {
+  const gs = loadGameState();
+  if (!gs.bulletin) gs.bulletin = [];
+  gs.bulletin.push({ author: playerName, text: text.slice(0, 78), day: gs.currentDay });
+  if (gs.bulletin.length > BULLETIN_MAX) gs.bulletin = gs.bulletin.slice(-BULLETIN_MAX);
+  saveGameStateSync();
+}
+
 module.exports = {
   getGameState,
   updateGameState,
@@ -347,4 +364,6 @@ module.exports = {
   sendMail,
   getMail,
   clearMail,
+  getBulletinBoard,
+  postBulletin,
 };

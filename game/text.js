@@ -41,6 +41,9 @@ const C = {
   dkgray:  '\x1b[1;30m',
   clrscr:  '\x1b[2J\x1b[H',
   clearln: '\x1b[2K\r',
+  // Background colors for emphasis
+  bgred:   '\x1b[41m',
+  bgblack: '\x1b[40m',
 };
 
 /**
@@ -127,13 +130,40 @@ function formatSay(template, winner, loser) {
 /**
  * Build a centered title bar like LORD's section headers.
  *   ─────────────── TITLE ───────────────
+ *
+ * color: 'red' (default) | 'green' | 'blue' | 'yellow' | 'magenta' | 'cyan'
  */
-function titleBar(title, width = 79) {
+function titleBar(title, width = 79, color = 'red') {
   const inner = ` ${title} `;
   const dashes = Math.max(0, width - inner.length);
   const left  = Math.floor(dashes / 2);
   const right = dashes - left;
-  return C.dkblue + '─'.repeat(left) + C.cyan + inner + C.dkblue + '─'.repeat(right) + C.reset;
+
+  const palettes = {
+    red:     { rule: C.dkred,   label: C.red    },
+    green:   { rule: C.dkgreen, label: C.green  },
+    blue:    { rule: C.dkblue,  label: C.cyan   },
+    yellow:  { rule: C.brown,   label: C.yellow },
+    magenta: { rule: C.magenta, label: C.white  },
+    cyan:    { rule: C.dkblue,  label: C.cyan   },
+  };
+  const { rule, label } = palettes[color] || palettes.red;
+  return rule + '─'.repeat(left) + label + inner + rule + '─'.repeat(right) + C.reset;
+}
+
+/**
+ * A thematic divider line — full width, styled.
+ * color: 'red' | 'blue' | 'green' | 'dim'
+ */
+function divider(width = 79, color = 'red') {
+  const colors = {
+    red:   C.dkred,
+    blue:  C.dkblue,
+    green: C.dkgreen,
+    dim:   C.dkgray,
+  };
+  const col = colors[color] || colors.red;
+  return col + '─'.repeat(width) + C.reset;
 }
 
 /**
@@ -152,10 +182,32 @@ function pad(s, w, right = false) {
 }
 
 /**
- * LORD-style prompt: colored arrow + text
+ * LORD-style menu prompt arrow.
+ * Used inline before writing the cursor: out(menuPrompt())
+ */
+function menuPrompt() {
+  return C.dkred + ' » ' + C.white;
+}
+
+/**
+ * LORD-style prompt: colored arrow + text  (legacy, kept for compatibility)
  */
 function prompt(text) {
   return C.dkblue + '`' + C.yellow + ' ' + text;
+}
+
+/**
+ * "Press any key" inline text with thematic styling.
+ */
+function anyKeyMsg() {
+  return C.dkgray + '\r\n  ' + C.dkred + '[' + C.gray + 'Press any key' + C.dkred + ']' + C.reset;
+}
+
+/**
+ * Format a stat row for the stats screen: label padded + value.
+ */
+function statRow(label, value, labelColor = C.gray, valueColor = C.white) {
+  return labelColor + `  ${label.padEnd(12)}` + valueColor + String(value) + C.reset;
 }
 
 /**
@@ -173,6 +225,10 @@ module.exports = {
   parseSayFile,
   formatSay,
   titleBar,
+  divider,
+  menuPrompt,
+  anyKeyMsg,
+  statRow,
   commas,
   pad,
   prompt,

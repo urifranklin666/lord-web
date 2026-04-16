@@ -160,6 +160,76 @@ function eventTroll(player, out) {
   return { changed: true, endFight: false };
 }
 
+// ── Class-exclusive forest events ────────────────────────────────────────────
+function eventUndeadRally(player, out) {
+  // Death Knight only — undead bow before your dark power, yield bonus exp
+  const bonus = player.level * rnd(80, 150);
+  player.exp += bonus;
+  out(C.dkgray + `  A shambling undead warrior stumbles from the shadows.` + C.reset);
+  out(`\r\n  ${C.dkred}It senses your dark power and crumbles in submission.` + C.reset);
+  out(`\r\n  ${C.yellow}+${commas(bonus)} experience` + C.reset);
+  storage.savePlayer(player);
+  return { changed: true, endFight: false };
+}
+
+function eventMysticPool(player, out) {
+  // Mage only — a glowing pool restores one magic use
+  if (player.levelm >= player.skillm) {
+    out(C.cyan + `  A shimmering pool catches your eye — but your magic is already full.` + C.reset);
+    return { changed: false, endFight: false };
+  }
+  player.levelm++;
+  out(C.cyan + `  You discover a shimmering mystic pool and drink deeply.` + C.reset);
+  out(`\r\n  ${C.green}+1 Magic Blast use restored! (${player.levelm}/${player.skillm})` + C.reset);
+  storage.savePlayer(player);
+  return { changed: true, endFight: false };
+}
+
+function eventPickpocket(player, out) {
+  // Thief only — lift gold from an unsuspecting traveler
+  const gold = player.level * rnd(50, 200);
+  player.gold += gold;
+  out(C.dkgray + `  A merchant passes, fat purse swinging at his belt.` + C.reset);
+  out(`\r\n  ${C.green}Your nimble fingers do the rest. +${commas(gold)}g` + C.reset);
+  storage.savePlayer(player);
+  return { changed: true, endFight: false };
+}
+
+function eventClassExclusive(player, out) {
+  if (player.class === 1) return eventUndeadRally(player, out);
+  if (player.class === 2) return eventMysticPool(player, out);
+  if (player.class === 3) return eventPickpocket(player, out);
+  return null;
+}
+
+// ── Artifact items (one-time permanent finds) ─────────────────────────────────
+function eventArtifact(player, out) {
+  const hasRing   = player.hasRing;
+  const hasScroll = player.hasScroll;
+  if (hasRing && hasScroll) return null; // nothing left to find
+
+  // Pick whichever is missing; if both missing, random
+  let which;
+  if (!hasRing && !hasScroll) which = rnd(1, 2) === 1 ? 'ring' : 'scroll';
+  else if (!hasRing)          which = 'ring';
+  else                        which = 'scroll';
+
+  if (which === 'ring') {
+    player.hasRing = true;
+    player.hpMax  += 15;
+    player.hp     += 15;
+    out(C.yellow + `  Half-buried in the dirt: a ring etched with runes of life.` + C.reset);
+    out(`\r\n  ${C.green}You slip it on. Ring of Vitality — +15 Max HP! (now ${player.hpMax})` + C.reset);
+  } else {
+    player.hasScroll = true;
+    player.def      += 3;
+    out(C.white + `  A weathered scroll tumbles from a cracked tree hollow.` + C.reset);
+    out(`\r\n  ${C.green}You absorb its power. Scroll of Fortification — +3 DEF! (now ${player.def})` + C.reset);
+  }
+  storage.savePlayer(player);
+  return { changed: true, endFight: false };
+}
+
 // ── Amulet of Accuracy (bank leave event) ────────────────────────────────────
 function eventAmulet(player, out) {
   if (player.hasAmulet) return { changed: false, endFight: false };
@@ -380,8 +450,11 @@ const FOREST_EVENTS = [
   eventHag,
   eventTroll,
   eventUglyStick,
-  eventFairy,   // rare bonus event
-  eventDemon,   // rare dangerous encounter
+  eventFairy,          // rare bonus event
+  eventDemon,          // rare dangerous encounter
+  eventAmulet,         // cloaked stranger can also appear in the forest
+  eventClassExclusive, // class-specific event (DK/Mage/Thief)
+  eventArtifact,       // rare one-time permanent item find
 ];
 
 /**
@@ -389,12 +462,12 @@ const FOREST_EVENTS = [
  * Always ticks the weird-event accumulator (silent unless v3 reaches 5).
  * Returns event result or null if no event fired.
  */
-function rollForestEvent(player, out) {
+function rollForestEvent(player, out, chance = 30) {
   // Weird event accumulator always ticks
   const weird = eventWeird(player, out);
   if (weird) return weird;
 
-  if (rnd(1, 100) > 30) return null;
+  if (rnd(1, 100) > chance) return null;
   const fn = FOREST_EVENTS[rnd(0, FOREST_EVENTS.length - 1)];
   return fn(player, out);
 }
@@ -416,4 +489,6 @@ module.exports = {
   getBadSay,
   eventHorse,
   FOREST_EVENTS,
+  eventClassExclusive,
+  eventArtifact,
 };

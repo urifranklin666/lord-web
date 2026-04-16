@@ -131,10 +131,10 @@ function _loadLordDat() {
     const raw = cp437ToUtf8(buf.slice(start, end));
 
     // Strip menu option lines from lord-coded screens.
-    // Menu options use the pattern (`X where X is a LORD color code character,
-    // e.g. (`5C`2)onverse or (`0R`2)eturn. Pure ANSI art screens don't contain
-    // this pattern, so they pass through unchanged.
-    const menuIdx = raw.search(/\(`[0-9!@#$%&]/);
+    // Catches two formats:
+    //   - LORD color-coded:  (`5C`2)onverse  (backtick + color char before the letter)
+    //   - Plain ASCII:       (L)ook for ...  (capital letter at start of line)
+    const menuIdx = raw.search(/\(`[0-9!@#$%&]|^\([A-Z]\)/m);
     let contentRaw = raw;
     if (menuIdx !== -1) {
       const lineBreak = raw.lastIndexOf('\n', menuIdx);
