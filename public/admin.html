@@ -204,6 +204,32 @@
     .btn-cancel:hover { border-color: var(--red-dim); color: var(--text); }
     #editor-msg { font-size: 0.75rem; color: var(--green-lt); }
 
+    /* ── Announce ── */
+    #announce-area {
+      margin-top: 1.5rem;
+    }
+    #announce-input {
+      width: 100%; max-width: 560px; background: var(--input-bg);
+      border: 1px solid var(--border2); color: var(--text);
+      padding: 0.45rem 0.75rem; font-family: inherit; font-size: 0.8rem;
+      outline: none; margin-bottom: 0.5rem; display: block;
+    }
+    #announce-input:focus { border-color: var(--red-dim); }
+    #announce-btn {
+      background: var(--red-dim); border: 1px solid var(--red); color: #fff;
+      padding: 0.4rem 1.2rem; cursor: pointer; font-family: inherit; font-size: 0.8rem;
+      letter-spacing: 0.06em;
+    }
+    #announce-btn:hover { background: var(--red); }
+    #announce-msg { margin-left: 0.75rem; font-size: 0.75rem; color: var(--green-lt); }
+
+    /* ── Bulletin list ── */
+    #bulletin-list { margin-top: 1rem; max-width: 700px; }
+    .bul-row { display: flex; gap: 1rem; padding: 0.3rem 0; border-bottom: 1px solid #111; font-size: 0.75rem; }
+    .bul-day    { color: var(--text-dim); min-width: 50px; }
+    .bul-author { color: var(--gold); min-width: 100px; }
+    .bul-text   { color: var(--text); }
+
     /* ── Stats cards ── */
     .stat-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
     .stat-card {
@@ -261,6 +287,7 @@
     <div class="nav-section" style="margin-top:.75rem">Game</div>
     <button class="nav-btn" data-section="settings">Environment Settings</button>
     <button class="nav-btn" data-section="players">Player Editor</button>
+    <button class="nav-btn" data-section="announce">Announcements</button>
   </nav>
 
   <div id="content">
@@ -290,6 +317,24 @@
       <div style="margin-top:1.25rem">
         <button id="save-settings-btn">Save Settings</button>
         <span id="settings-msg"></span>
+      </div>
+    </div>
+
+    <!-- Announcements -->
+    <div class="section" id="section-announce">
+      <h2 class="section-title">Announcements</h2>
+      <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:1rem">
+        Post a message as <strong style="color:var(--gold)">Sysop</strong> to the in-game notice board.
+        Players will see it in the tavern under <kbd style="color:var(--gold);background:#111;border:1px solid #333;padding:0 3px">(N)otice Board</kbd>.
+      </p>
+      <input type="text" id="announce-input" maxlength="78" placeholder="Message (max 78 chars)…">
+      <div>
+        <button id="announce-btn">Post Announcement</button>
+        <span id="announce-msg"></span>
+      </div>
+      <div id="announce-area">
+        <h2 class="section-title" style="margin-top:1.5rem">Recent Bulletins</h2>
+        <div id="bulletin-list"></div>
       </div>
     </div>
 
@@ -465,16 +510,19 @@
 
   // ── Dashboard ──────────────────────────────────────────────────────────────
   async function renderDashboard() {
-    const gs = await (await api('GET', '/api/admin/settings')).json();
+    const [gsRes, stRes] = await Promise.all([
+      api('GET', '/api/admin/settings'),
+      api('GET', '/api/admin/gamestate'),
+    ]);
+    const gs = await gsRes.json();
+    const st = await stRes.json();
     const alive = players.filter(p => !p.dead).length;
     document.getElementById('stat-total').textContent  = players.length;
     document.getElementById('stat-alive').textContent  = alive;
     document.getElementById('stat-dead').textContent   = players.length - alive;
     document.getElementById('stat-fights').textContent = gs.forestFights ?? '?';
-
-    // game state — not directly available via API, derive from players
-    document.getElementById('stat-champ').textContent = 'No API yet';
-    document.getElementById('stat-day').textContent   = '—';
+    document.getElementById('stat-champ').textContent  = st.championName || '—';
+    document.getElementById('stat-day').textContent    = st.currentDay   || '—';
 
     const top = [...players].sort((a, b) => b.exp - a.exp).slice(0, 10);
     const tbody = document.getElementById('top-body');
@@ -634,6 +682,48 @@
       renderDashboard();
     }
   }
+
+  // ── Announcements ──────────────────────────────────────────────────────────
+  async function loadBulletin() {
+    const res = await api('GET', '/api/admin/gamestate');
+    if (!res.ok) return;
+    const st = await res.json();
+    const list = document.getElementById('bulletin-list');
+    list.innerHTML = '';
+    const posts = (st.bulletin || []).slice().reverse();
+    if (!posts.length) {
+      list.innerHTML = '<div style="color:var(--text-dim);font-size:0.75rem">No posts yet.</div>';
+      return;
+    }
+    posts.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'bul-row';
+      row.innerHTML = `<span class="bul-day">Day ${p.day}</span><span class="bul-author">${esc(p.author)}</span><span class="bul-text">${esc(p.text)}</span>`;
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('announce-btn').addEventListener('click', async () => {
+    const text = document.getElementById('announce-input').value.trim();
+    if (!text) return;
+    const res = await api('POST', '/api/admin/announce', { text });
+    const msg = document.getElementById('announce-msg');
+    if (res.ok) {
+      msg.textContent = 'Posted!';
+      document.getElementById('announce-input').value = '';
+      loadBulletin();
+      setTimeout(() => { msg.textContent = ''; }, 2500);
+    } else {
+      msg.textContent = 'Error posting.';
+    }
+  });
+
+  document.getElementById('announce-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('announce-btn').click();
+  });
+
+  // Load bulletin when switching to announce section
+  document.querySelector('[data-section="announce"]').addEventListener('click', loadBulletin);
 
   // ── Utilities ──────────────────────────────────────────────────────────────
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

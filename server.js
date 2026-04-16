@@ -19,6 +19,19 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Health check
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+// ── Public status (no auth) ───────────────────────────────────────────────────
+app.get('/api/status', (_req, res) => {
+  const gs      = storage.getGameState();
+  const players = storage.getAll();
+  res.json({
+    currentDay:   gs.currentDay    || 1,
+    championName: gs.championName  || 'No Winner Yet',
+    championDays: gs.championDays  || 0,
+    playerCount:  players.length,
+    aliveCount:   players.filter(p => !p.dead).length,
+  });
+});
+
 // ── Admin auth middleware ──────────────────────────────────────────────────────
 function adminAuth(req, res, next) {
   const auth = req.headers['authorization'] || '';
@@ -30,6 +43,26 @@ function adminAuth(req, res, next) {
 }
 
 // ── Admin API ─────────────────────────────────────────────────────────────────
+
+// GET /api/admin/gamestate
+app.get('/api/admin/gamestate', adminAuth, (_req, res) => {
+  const gs = storage.getGameState();
+  res.json({
+    currentDay:   gs.currentDay   || 1,
+    championName: gs.championName || 'No Winner Yet',
+    championDays: gs.championDays || 0,
+    lastReset:    gs.lastReset    || null,
+    bulletin:     gs.bulletin     || [],
+  });
+});
+
+// POST /api/admin/announce — post a sysop bulletin board message
+app.post('/api/admin/announce', adminAuth, (req, res) => {
+  const text = (req.body.text || '').trim().slice(0, 78);
+  if (!text) return res.status(400).json({ error: 'text required' });
+  storage.postBulletin('Sysop', text);
+  res.json({ ok: true });
+});
 
 // GET /api/admin/settings
 app.get('/api/admin/settings', adminAuth, (_req, res) => {
