@@ -242,10 +242,11 @@ function newPlayer(name, realName, passwordHash, sex, classNum) {
     extra:        0,  // 1=has horse
 
     // ── Daily counters ──
-    fightsLeft:  BASE_FOREST_FIGHTS,
-    humanLeft:   BASE_PVP_FIGHTS,
-    lastDay:     todayStr(),
-    v4:          false, // daily special done?
+    fightsLeft:   BASE_FOREST_FIGHTS,
+    humanLeft:    BASE_PVP_FIGHTS,
+    lastDay:      todayStr(),
+    v4:           false, // daily special done?
+    inGameHour:   6,     // in-game clock (0-23); advances 1 per forest fight
 
     // ── Skills (per class, max 40) ──
     skillw:  0, skillm:  0, skillt:  0,
@@ -293,30 +294,39 @@ function savePlayer(player) {
   markDirty();
 }
 
-// ── Daily reset for a single player ──────────────────────────────────────────
-function resetPlayerDay(player) {
-  const today = todayStr();
-  if (player.lastDay === today) return false; // already reset
-
-  player.fightsLeft = getSetting('forestFights') + (player.extra ? 10 : 0); // horse = +10
+// ── Shared daily-reset logic ──────────────────────────────────────────────────
+function _doPlayerReset(player) {
+  player.fightsLeft = getSetting('forestFights') + (player.extra ? 10 : 0);
   player.humanLeft  = getSetting('pvpFights');
   player.v4         = false;
   player.seenViolet = false;
   player.seenBard   = false;
-  player.hasAmulet  = player.hasAmulet || false; // persist across days
+  player.levelw     = player.skillw;
+  player.levelm     = player.skillm;
+  player.levelt     = player.skillt;
+  if (player.inn) { player.hp = player.hpMax; player.inn = false; }
+}
 
-  // Restore skill uses
-  player.levelw = player.skillw;
-  player.levelm = player.skillm;
-  player.levelt = player.skillt;
+// ── In-game tick — advances in-game clock by 1 hour per forest fight ──────────
+function advancePlayerTick(player) {
+  const prev = player.inGameHour !== undefined ? player.inGameHour : 6;
+  const next  = (prev + 1) % 24;
+  player.inGameHour = next;
+  const newDay = next < prev; // wrapped past midnight
+  if (newDay) _doPlayerReset(player);
+  markDirty();
+  return { newDay, hour: next };
+}
 
-  // Inn healing
-  if (player.inn) {
-    player.hp = player.hpMax;
-    player.inn = false;
-  }
+// ── Daily reset for a single player (calendar-based login check) ──────────────
+function resetPlayerDay(player) {
+  const today = todayStr();
+  if (player.lastDay === today) return false; // already reset today
 
-  player.lastDay = today;
+  _doPlayerReset(player);
+  player.hasAmulet = player.hasAmulet || false; // persist across days
+  player.lastDay   = today;
+  player.inGameHour = player.inGameHour !== undefined ? player.inGameHour : 6;
   markDirty();
   return true;
 }
@@ -357,6 +367,7 @@ module.exports = {
   setSettings,
   getAllSettings,
   SETTING_DEFAULTS,
+  advancePlayerTick,
   getDragonState,
   damageDragon,
   resetDragon,

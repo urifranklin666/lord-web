@@ -13,13 +13,19 @@ const { getSetting } = require('./storage');
 const { loadArt, getLordScreen } = require('./ansi');
 const fx = require('./combat_fx');
 
-// ── Time of day ───────────────────────────────────────────────────────────────
-function getTimeOfDay() {
-  const h = new Date().getHours();
+// ── Time of day — reads in-game clock if player provided ─────────────────────
+function getTimeOfDay(player) {
+  const h = (player && player.inGameHour !== undefined) ? player.inGameHour : new Date().getHours();
   if (h >= 22 || h < 6)  return 'night';
   if (h >= 18)            return 'evening';
   if (h >= 12)            return 'afternoon';
   return 'morning';
+}
+
+function hourLabel(h) {
+  const hr = h % 12 || 12;
+  const ampm = h < 12 ? 'am' : 'pm';
+  return `${hr}${ampm}`;
 }
 
 const TOD_LABEL = {
@@ -333,12 +339,13 @@ class GameSession {
       p.married >= 0 ? C.magenta + `[Married]`         : '',
       p.dead      ? C.red     + `[DEAD — see Healer]`  : '',
     ].filter(Boolean).join(C.dkgray + `  `);
-    const tod = getTimeOfDay();
+    const tod  = getTimeOfDay(p);
+    const hour = p.inGameHour !== undefined ? p.inGameHour : new Date().getHours();
     this.ln(
       C.dkgray + `  Fights ` + C.white + `${p.fightsLeft}` +
       C.dkgray + `  PvP `   + C.white + `${p.humanLeft}` +
       C.dkgray + `  Gems `  + C.white + `${p.gem}` +
-      C.dkgray + `  ` + TOD_LABEL[tod](C) +
+      C.dkgray + `  ` + TOD_LABEL[tod](C) + C.dkgray + ` (${hourLabel(hour)})` +
       (flags ? C.dkgray + `    ` + flags : '') + C.reset
     );
     this.ln(DIV_RED.trimEnd());
@@ -447,7 +454,7 @@ class GameSession {
     const p = this.player;
 
     // At night, 15% extra chance of a dangerous encounter before the main event roll
-    const tod = getTimeOfDay();
+    const tod = getTimeOfDay(p);
     if (tod === 'night' && rnd(1, 100) <= 15) {
       this.ln(C.dkred + `  The darkness presses close around you...` + C.reset);
     }
@@ -551,6 +558,12 @@ class GameSession {
         this.ln(C.yellow + `\r\n  You flee from battle!` + C.reset);
         this.ln(C.gray   + `  HP: ${p.hp}/${p.hpMax}` + C.reset);
         p.fightsLeft--;
+        const fleeTick = storage.advancePlayerTick(p);
+        if (fleeTick.newDay) {
+          this.ln();
+          this.ln(C.dkgray + `  ─── ` + C.yellow + `Midnight` + C.dkgray + ` — a new day begins ───` + C.reset);
+          this.ln(C.green  + `  Your fight counts and abilities are restored.` + C.reset);
+        }
         storage.savePlayer(p);
         this._postFight();
       } else {
@@ -699,6 +712,15 @@ class GameSession {
     if (combat.canLevelUp(p)) {
       this.ln(C.yellow + `\r\n  *** You are ready to level up! Visit the Master! ***` + C.reset);
     }
+
+    // Advance in-game clock
+    const tick = storage.advancePlayerTick(p);
+    if (tick.newDay) {
+      this.ln();
+      this.ln(C.dkgray + `  ─── ` + C.yellow + `Midnight` + C.dkgray + ` — a new day begins ───` + C.reset);
+      this.ln(C.green  + `  Your fight counts and abilities are restored.` + C.reset);
+    }
+
     storage.savePlayer(p);
     this._postFight();
   }
@@ -1512,7 +1534,7 @@ class GameSession {
     this.ln();
 
     const charm = p.charm || 0;
-    const tod = getTimeOfDay();
+    const tod = getTimeOfDay(p);
     const todBonus = tod === 'evening' ? 15 : (tod === 'night' ? 10 : 0);
     const roll  = rnd(1, 100) - todBonus;
 
@@ -1571,7 +1593,7 @@ class GameSession {
     this.ln();
 
     const charm = p.charm || 0;
-    const tod = getTimeOfDay();
+    const tod = getTimeOfDay(p);
     const todBonus = tod === 'evening' ? 15 : (tod === 'night' ? 10 : 0);
     const roll  = rnd(1, 100) - todBonus;
 
