@@ -9,14 +9,15 @@ No BBS required. No DOSBox. Just open a tab.
 ## Features
 
 ### Core Gameplay (faithful to LORD 4.07)
-- **Three character classes** — Death Knight (Deadly Strike), Mystical (Magic Blast), Thief (Backstab)
-- **Forest combat** — fight level-scaled monsters for gold and experience, with class special abilities
+- **Three character classes** — Death Knight (Deadly Strike), Mystical (Magic Blast), Thief (Backstab); each gains 1 skill point per level-up (max 40), improving their special ability's power and daily uses
+- **Forest combat** — fight level-scaled monsters for gold and experience, with class special abilities and a flat 10% crit chance
+- **In-game day/night cycle** — each completed fight advances your personal clock by 1 hour; time-of-day affects event rates and encounter danger; at midnight your daily fights, skill uses, and inn rest automatically restore
 - **Player-vs-Player battles** — attack other live players, steal their gold, earn kills
 - **Level-up system** — 12 levels, each gated by exp threshold and a named trainer (Halder → Turgon)
 - **Weapons & Armour shops** — 15 tiers each, parsed from original `WEAPONS.DAT` / `ARMOR.DAT`
-- **Bank** — deposit and withdraw gold; amulet merchant appears on exit
+- **Bank** — deposit and withdraw gold
 - **Healer** — pay per HP or pay to resurrect from death
-- **Inn** — pay to sleep and wake fully healed the next visit
+- **Inn** — pay to sleep and wake fully healed at the next in-game midnight
 
 ### NPCs & Events
 - **Violet / Seth Able** — charm-based daily romance encounter in the Tavern bartender submenu; outcomes range from rejection to +charm and +lays
@@ -27,11 +28,13 @@ No BBS required. No DOSBox. Just open a tab.
 - **Fairy** — rare Extra Special Event: charm, fights, gold, or full heal
 - **Demon** — dangerous level-scaled forest encounter with big rewards
 - **Weird events** — silent `v3` accumulator fires a strange bonus every 5 forest visits
-- **Amulet of Accuracy** — sold by a cloaked stranger near the bank; +25% damage in all fights
+- **Amulet of Accuracy** — sold by a cloaked stranger who appears as a forest event or near the bank; +25% damage in all fights
 - **Horse** — buy for 10,000g × level, grants +10 forest fights per day
+- **Charm parley** — players with high Charm (up to 100) have up to a 10% chance to intimidate a monster into surrendering half its gold without a fight (no exp — a tradeoff)
+- **Monster pickpocket** — enemies have an 8% chance per successful hit to steal 5% of your current gold; risk exists beyond just PvP
 
 ### Endgame — The Red Dragon
-- **Shared persistent boss** — all players on the server chip away at the same 1,000 HP dragon
+- **Shared persistent boss** — all players on the server chip away at the same dragon (25,000 HP)
 - **Turn-based dragon fight** — Attack / Flee / Gem heal; dragon counter-attacks for 100–300 damage; Amulet bonus applies
 - **Dragon resets daily**
 - **Killing the dragon** awards massive exp & gold, increments your dragon-kill counter, and crowns you **Champion of the Realm**
