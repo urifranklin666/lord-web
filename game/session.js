@@ -482,6 +482,22 @@ class GameSession {
     const monster = monsters.randomMonster(p.level);
     this._context.monster = monster;
 
+    // Charm-based parley: high charm can intimidate weaker foes into yielding gold
+    const parleyChance = Math.floor((p.charm || 0) / 10);
+    if (parleyChance > 0 && rnd(1, 100) <= parleyChance) {
+      const bribe = Math.floor(monster.gold / 2);
+      p.gold += bribe;
+      p.fightsLeft = Math.max(0, p.fightsLeft - 1);
+      storage.savePlayer(p);
+      this.ln(DIV_GREEN.trimEnd());
+      this.ln(C.magenta + `  Your commanding presence stops the ${monster.name} cold.` + C.reset);
+      this.ln(C.gray    + `  It tosses you its coin pouch and flees into the trees.` + C.reset);
+      this.ln(C.yellow  + `  +${commas(bribe)} gold  (no exp — the easy way out)` + C.reset);
+      this.ln();
+      this._anyKey(() => this._enterForest());
+      return;
+    }
+
     // Store max HP for combat status display
     monster.hpMax = monster.hp;
     this.ln(DIV_GREEN.trimEnd());
@@ -1977,7 +1993,7 @@ class GameSession {
 
     // Rewards
     const expGained  = 300000 + p.level * 50000;
-    const goldGained = 1000000 + p.level * 150000;
+    const goldGained = 1500000 + p.level * 200000;
     p.exp  += expGained;
     p.gold += goldGained;
     p.king  = (p.king || 0) + 1;

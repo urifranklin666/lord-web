@@ -13,7 +13,7 @@ const { CLASSES } = require('./constants');
 function calcHit(atkStr, defDef) {
   const roll = rnd(Math.floor(atkStr * 0.5), atkStr);
   const base = Math.max(1, roll - defDef);
-  const crit = roll >= atkStr * 0.9;
+  const crit = Math.random() < 0.10;
   const damage = crit ? Math.floor(base * 1.5) : base;
   return { damage, hit: roll, crit };
 }
@@ -71,16 +71,16 @@ function useSpecial(player, monster) {
   let text = '';
 
   if (cls === 1) {
-    // Death Knight: Deadly Strike — 2× strength, costs 10% of max HP
-    damage = rnd(player.strength, player.strength * 2);
+    // Death Knight: Deadly Strike — 1.8× strength, costs 10% of max HP
+    damage = rnd(Math.floor(player.strength * 1.2), Math.floor(player.strength * 1.8));
     const cost = Math.max(1, Math.floor(player.hpMax * 0.1));
     player.hp = Math.max(1, player.hp - cost);
     text = C.red + `You channel dark energy into a Deadly Strike! ` +
            C.white + `[costs ${cost} HP] ` +
            C.yellow + `${damage} damage!` + C.reset;
   } else if (cls === 2) {
-    // Mage: Magic Blast — ignores defense, fixed damage based on skill
-    damage = rnd(player.strength, player.strength + player.skillm * 5);
+    // Mage: Magic Blast — ignores defense, range scales with skillm
+    damage = rnd(player.strength, Math.floor(player.strength * 1.2) + player.skillm * 30);
     text = C.cyan + `You unleash a Magic Blast! ` +
            C.white + `(ignores armour) ` +
            C.yellow + `${damage} damage!` + C.reset;
@@ -124,6 +124,13 @@ function fightMonster(player, monster) {
     const ma = monsterAttack(player, monster);
     log.push(ma.text);
     player.hp -= ma.damage;
+
+    // 8% chance per hit: monster pickpockets some gold (only if player has gold)
+    if (player.gold > 0 && Math.random() < 0.08) {
+      const stolen = Math.max(1, Math.floor(player.gold * 0.05));
+      player.gold -= stolen;
+      log.push(C.dkgray + `  The ${monster.name} snatches ${stolen} gold from you!` + C.reset);
+    }
 
     if (player.hp <= 0) {
       player.hp = 0;

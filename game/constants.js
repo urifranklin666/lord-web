@@ -14,10 +14,10 @@ const WEAPONS = [
   { name: "Able's Sword",  price:    400000, strength:  180 },
   { name: "Wan's Weapon",  price:   1000000, strength:  250 },
   { name: 'Spear Of Gold', price:   4000000, strength:  350 },
-  { name: 'Crystal Shard', price:  10000000, strength:  500 },
-  { name: "Niras's Teeth", price:  40000000, strength:  800 },
-  { name: 'Blood Sword',   price: 100000000, strength: 1200 },
-  { name: 'Death Sword',   price: 400000000, strength: 1800 },
+  { name: 'Crystal Shard', price:   5000000, strength:  500 },
+  { name: "Niras's Teeth", price:   8000000, strength:  800 },
+  { name: 'Blood Sword',   price:  20000000, strength: 1200 },
+  { name: 'Death Sword',   price:  60000000, strength: 1800 },
 ];
 
 // ── Armour table ──────────────────────────────────────────────────────────────
@@ -34,10 +34,10 @@ const ARMOUR = [
   { name: "Able's Armour",     price:    400000, defense:  100 },
   { name: 'Full Body Armour',  price:   1000000, defense:  150 },
   { name: 'Blood Armour',      price:   4000000, defense:  225 },
-  { name: 'Magic Protection',  price:  10000000, defense:  300 },
-  { name: "Belar's Mail",      price:  40000000, defense:  400 },
-  { name: 'Golden Armour',     price: 100000000, defense:  600 },
-  { name: 'Armour Of Lore',    price: 400000000, defense: 1000 },
+  { name: 'Magic Protection',  price:   5000000, defense:  300 },
+  { name: "Belar's Mail",      price:   8000000, defense:  400 },
+  { name: 'Golden Armour',     price:  20000000, defense:  600 },
+  { name: 'Armour Of Lore',    price:  60000000, defense: 1000 },
 ];
 
 // ── Character classes ─────────────────────────────────────────────────────────
