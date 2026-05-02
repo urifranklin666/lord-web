@@ -152,10 +152,21 @@ function clearMail(playerId) {
 
 // ── Players ───────────────────────────────────────────────────────────────────
 function loadPlayers() {
-  if (_players) return _players;
+  if (Array.isArray(_players)) return _players;
   ensureDataDir();
   if (fs.existsSync(PLAYERS_FILE)) {
-    _players = JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8'));
+    try {
+      const parsed = JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8'));
+      _players = Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) {
+        console.error('[lord] players.json is not an array, resetting to empty list');
+      }
+    } catch (e) {
+      const backup = PLAYERS_FILE + '.corrupt.' + Date.now();
+      try { fs.copyFileSync(PLAYERS_FILE, backup); } catch (_) {}
+      console.error('[lord] players.json corrupt, backed up to', backup, ':', e.message);
+      _players = [];
+    }
   } else {
     _players = [];
   }
@@ -175,8 +186,19 @@ function scheduleSave() {
 
 function savePlayers() {
   ensureDataDir();
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
   fs.writeFileSync(PLAYERS_FILE, JSON.stringify(_players, null, 2));
   _dirty = false;
+}
+
+// Flush any pending debounced write — call from SIGTERM/SIGINT handlers.
+function flushSync() {
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+  if (_dirty && Array.isArray(_players)) {
+    try { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(_players, null, 2)); }
+    catch (e) { console.error('[lord] flushSync failed:', e.message); }
+    _dirty = false;
+  }
 }
 
 function markDirty() {
@@ -210,7 +232,7 @@ const { CLASS_START, BASE_FOREST_FIGHTS, BASE_PVP_FIGHTS } = require('./constant
 function newPlayer(name, realName, passwordHash, sex, classNum) {
   const players = loadPlayers();
   const start = CLASS_START[classNum];
-  const id = players.length > 0 ? Math.max(...players.map(p => p.id)) + 1 : 1;
+  const id = players.length > 0 ? players.reduce((max, p) => Math.max(max, p.id), 0) + 1 : 1;
 
   const player = {
     id,
@@ -260,6 +282,8 @@ function newPlayer(name, realName, passwordHash, sex, classNum) {
     seenViolet:  false,
     seenBard:    false,
     hasAmulet:   false, // Amulet of Accuracy
+    hasRing:     false, // Ring of Vitality (+15 Max HP)
+    hasScroll:   false, // Scroll of Fortification (+3 DEF)
 
     // ── Social ──
     married:     -1,
@@ -377,4 +401,5 @@ module.exports = {
   clearMail,
   getBulletinBoard,
   postBulletin,
+  flushSync,
 };

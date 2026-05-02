@@ -48,34 +48,54 @@ const DIV_BLUE  = divider(79, 'blue')  + CRLF;
 const DIV_GREEN = divider(79, 'green') + CRLF;
 const DIV_DIM   = divider(79, 'dim')   + CRLF;
 
+// Single-key states: input is dispatched immediately on keypress, not on Enter.
+const SINGLE_KEY_STATES = new Set([
+  'main_menu','forest_menu','encounter_menu','fight_choice',
+  'bank_menu',
+  'healer_menu','inn_menu','tavern_menu',
+  'master_menu','pvp_list_page','pvp_confirm',
+  'players_list','any_key','death_screen',
+  'blackjack_menu','blackjack_end','register_sex','register_class',
+  'horse_offer','amulet_offer',
+  'bartender_menu','gem_trade',
+  'dragon_fight','marriage_reply','mail_read','propose_confirm',
+]);
+
+const MAX_LOGIN_ATTEMPTS = 5;
+
 // ── GameSession ───────────────────────────────────────────────────────────────
 class GameSession {
-  constructor(send) {
-    this._send    = send;
-    this.player   = null;
-    this.state    = 'login_name';
-    this._buf     = '';
-    this._context = {};
+  // hooks: { onLogin(playerId), canRegister() -> boolean }
+  constructor(send, close, hooks) {
+    this._send           = send;
+    this._close          = close || (() => {});
+    this._hooks          = hooks || {};
+    this.player          = null;
+    this.state           = 'login_name';
+    this._buf            = '';
+    this._context        = {};
+    this._loginAttempts  = 0;
   }
 
   out(text)     { this._send(text); }
   ln(text = '') { this._send(text + CRLF); }
   cls()         { this._send(CLRSCR); }
 
-  onKey(ch) {
-    const singleKey = [
-      'main_menu','forest_menu','encounter_menu','fight_choice',
-      'bank_menu',
-      'healer_menu','inn_menu','tavern_menu',
-      'master_menu','pvp_list_page','pvp_confirm',
-      'players_list','any_key','death_screen',
-      'blackjack_menu','blackjack_end','register_sex','register_class',
-      'horse_offer','amulet_offer',
-      'bartender_menu','gem_trade',
-      'dragon_fight','marriage_reply','mail_read','propose_confirm',
-    ];
+  // Unified error handler — used by both sync catch in server.js and async .catch below.
+  _handleError(err) {
+    console.error('[lord] State error:', err);
+    this.out('\r\n\x1b[1;31mInternal error. Returning to menu.\x1b[0m\r\n');
+    if (this.player) {
+      storage.savePlayer(this.player);
+      this.state = 'main_menu';
+      this._renderMain();
+    } else {
+      this._showLogin();
+    }
+  }
 
-    if (singleKey.includes(this.state)) {
+  onKey(ch) {
+    if (SINGLE_KEY_STATES.has(this.state)) {
       this._dispatch(ch.toLowerCase());
       return;
     }
@@ -102,10 +122,13 @@ class GameSession {
   _dispatch(input) {
     const handler = `_state_${this.state}`;
     if (typeof this[handler] === 'function') {
-      this[handler](input);
+      const result = this[handler](input);
+      // Catch rejections from async state handlers (e.g. _state_login_pass).
+      if (result && typeof result.then === 'function') {
+        result.catch(err => this._handleError(err));
+      }
     } else {
       this.ln(C.red + `Unknown state: ${this.state}` + C.reset);
-      this.state = 'main_menu';
       this._renderMain();
     }
   }
@@ -161,6 +184,13 @@ class GameSession {
   _state_login_name(name) {
     if (!name) { this.out(C.white + '> '); return; }
     if (name.toLowerCase() === 'new') {
+      // Registration cap is enforced at completion; but warn early so the
+      // player doesn't fill out a whole form for nothing.
+      if (typeof this._hooks.canRegister === 'function' && !this._hooks.canRegister()) {
+        this.ln(C.red + '  Too many recent registrations from your address. Try again later.' + C.reset);
+        this.out(C.white + '> ' + C.reset);
+        return;
+      }
       this.state = 'register_name';
       this.ln(CRLF + C.yellow + 'Enter your game handle (up to 20 chars):' + C.reset);
       this.out(C.white + '> ' + C.reset);
@@ -183,13 +213,21 @@ class GameSession {
     if (!player) { this.start(); return; }
     const ok = await storage.checkPassword(pw, player.passwordHash);
     if (!ok) {
-      this.ln(C.red + '  Wrong password.' + C.reset);
+      this._loginAttempts++;
+      if (this._loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+        this.ln(C.red + '  Too many failed attempts. Disconnecting.' + C.reset);
+        this._close();
+        return;
+      }
+      this.ln(C.red + `  Wrong password. (${this._loginAttempts}/${MAX_LOGIN_ATTEMPTS})` + C.reset);
       this.ln(C.yellow + '  Name:' + C.reset);
       this.out(C.white + '> ' + C.reset);
       this.state = 'login_name';
       return;
     }
+    this._loginAttempts = 0;
     this.player = player;
+    if (typeof this._hooks.onLogin === 'function') this._hooks.onLogin(player.id);
     this._enterGame();
   }
 
@@ -262,6 +300,7 @@ class GameSession {
       hash, this._context.regSex, cls,
     );
     this.player = player;
+    if (typeof this._hooks.onLogin === 'function') this._hooks.onLogin(player.id);
     this.ln();
     this.ln(C.green  + `  Welcome, ${player.name}! Your adventure begins!` + C.reset);
     this.ln(C.gray   + `  Class: ${CLASSES[cls].name}  HP: ${player.hp}  STR: ${player.strength}  Gold: ${commas(player.gold)}` + C.reset);
@@ -302,6 +341,7 @@ class GameSession {
   // ══════════════════════════════════════════════════════════════════════════
 
   _renderMain() {
+    if (!this.player) { this._showLogin(); return; }
     const p = this.player;
     this.state = 'main_menu';
 
@@ -879,9 +919,16 @@ class GameSession {
     this.ln(C.dkgray + `  HP: ` + C.green + `${p.hp}` + C.dkgray + `/` + C.gray + `${p.hpMax}` +
             C.dkgray + `   Gold: ` + C.yellow + `${commas(p.gold)}` + C.reset);
     this.ln();
-    this.ln(C.dkgreen + `  (` + C.green + `S` + C.dkgreen + `)leep ` +
-            C.dkgray  + `(` + C.yellow + `${getSetting('innCost')}g` + C.dkgray + ` — wake fully healed next visit)`);
-    this.ln(C.dkgreen + `  (` + C.green + `L` + C.dkgreen + `)eave` + C.reset);
+    if (p.inn) {
+      this.ln(C.green  + `  Your room is already paid for.` + C.reset);
+      this.ln(C.dkgray + `  You will wake fully healed at the next midnight.` + C.reset);
+      this.ln();
+      this.ln(C.dkgreen + `  (` + C.green + `L` + C.dkgreen + `)eave` + C.reset);
+    } else {
+      this.ln(C.dkgreen + `  (` + C.green + `S` + C.dkgreen + `)leep ` +
+              C.dkgray  + `(` + C.yellow + `${getSetting('innCost')}g` + C.dkgray + ` — wake fully healed at the next midnight)`);
+      this.ln(C.dkgreen + `  (` + C.green + `L` + C.dkgreen + `)eave` + C.reset);
+    }
     this.ln();
     this.out(menuPrompt());
     this.state = 'inn_menu';
@@ -890,15 +937,20 @@ class GameSession {
   _state_inn_menu(ch) {
     const p = this.player;
     if (ch === 's') {
+      if (p.inn) {
+        this.ln(C.gray + `\r\n  You already have a room — no need to pay twice.` + C.reset);
+        this._anyKey(() => this._renderMain());
+        return;
+      }
       const INN_COST = getSetting('innCost');
       if (p.gold < INN_COST) {
         this.ln(C.red + `\r\n  "You can't afford a room!"` + C.reset);
       } else {
         p.gold -= INN_COST;
-        p.hp    = p.hpMax;
+        p.inn   = true;
         storage.savePlayer(p);
-        this.ln(C.green + `\r\n  You sleep soundly and wake fully healed.` + C.reset);
-        this.ln(C.gray  + `  HP: ${p.hp}/${p.hpMax}` + C.reset);
+        this.ln(C.green + `\r\n  You retire to a quiet room and stretch out by the fire.` + C.reset);
+        this.ln(C.gray  + `  At midnight your wounds will be fully healed.` + C.reset);
       }
       this._anyKey(() => this._renderMain());
       return;
@@ -1178,7 +1230,6 @@ class GameSession {
     if (players.length === 0) {
       this.ln(C.dkgray + `  No other adventurers in the realm yet.` + C.reset);
       this._anyKey(() => this._renderMain());
-      this.state = 'players_list';
       return;
     }
     this.ln(
